@@ -1,0 +1,108 @@
+/**
+ * Copyright (c) 2023-present Plane Software, Inc. and contributors
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * See the LICENSE file for details.
+ */
+
+/* =========================================================================
+   The shadcn variable bridge for `core/apps/chat/ui/`.
+
+   The ten shadcn primitives are written against shadcn's variable vocabulary
+   (`bg-background`, `text-muted-foreground`, `border-input`). KIRAN's design
+   system does not define those names -- `packages/tailwind-config/variables.css`
+   opens with `--color-*: initial`, which deletes the whole colour namespace and
+   substitutes `--bg-*` / `--txt-*` / `--border-*`. So every shadcn colour class
+   in those files currently resolves to nothing, silently.
+
+   This file is the translation layer, in two halves, and the split is forced by
+   how Tailwind v4 works rather than chosen:
+
+     1. `@theme inline` REGISTERS the class names. A utility only exists if its
+        token is in the theme registry, and that registry is global -- there is
+        no selector-scoped `@theme`. So `bg-background` becomes a real class
+        everywhere in apps/web.
+
+     2. `.kiran-chat-app` supplies the VALUES. Because half 1 is `inline`, the
+        `var(--background)` reference is inlined into the utility rather than
+        resolved at build time, so it is read at use time, in the scope of the
+        element. Outside `.kiran-chat-app` nothing defines `--background`, so
+        `bg-background` computes to an invalid value and paints nothing.
+
+   Net effect: the class names leak, the colours cannot. That is the strongest
+   scoping Tailwind v4 allows, and it is the same trade `../styles.css` documents
+   at its head for the font and shadow scales.
+
+   The values map onto KIRAN's semantic tokens, not onto chat's own palette, so
+   chat follows `[data-theme]` for free and looks like the rest of the product.
+   Surface/layer pairing follows `packages/tailwind-config/AGENTS.md`: the chat
+   pane is a surface-1, so nested fills are layer-1 and their hovers are
+   layer-1-hover.
+   ========================================================================= */
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+.kiran-chat-app {
+  /* Base plane and its text. The pane is a surface-1; dialogs and popovers are
+     on their own plane above it, which is the one case AGENTS.md exempts from
+     "surfaces never nest", so they are surface-1 too. */
+  --background: var(--bg-surface-1);
+  --foreground: var(--txt-primary);
+  --popover: var(--bg-surface-1);
+  --popover-foreground: var(--txt-primary);
+
+  /* Fills nested on that surface. `card` backs inputs, textareas and toasts;
+     `muted` backs inert tracks (the tabs rail); `secondary` is the one step
+     stronger fill used for chips and secondary buttons, which sit inside a
+     card and so are layer-2. */
+  --card: var(--bg-layer-1);
+  --muted: var(--bg-layer-1);
+  --muted-foreground: var(--txt-tertiary);
+  --secondary: var(--bg-layer-2);
+  --secondary-foreground: var(--txt-secondary);
+
+  /* shadcn's `accent` is not an accent -- in menus, command items and ghost
+     buttons it is the hover/selected fill, so it pairs with the layer it sits
+     on rather than with the brand. */
+  --accent: var(--bg-layer-1-hover);
+  --accent-foreground: var(--txt-primary);
+
+  /* Brand and danger. `*-foreground` is what sits ON the filled colour. */
+  --primary: var(--bg-accent-primary);
+  --primary-foreground: var(--txt-on-color);
+  --destructive: var(--bg-danger-primary);
+  --destructive-foreground: var(--txt-on-color);
+
+  /* Edges. `border` is a divider, `input` is a control edge and wants to be
+     visible against its own fill, `ring` is the focus indicator. */
+  --border: var(--border-subtle);
+  --input: var(--border-subtle-1);
+  --ring: var(--border-accent-strong);
+
+  /* Geometry. KIRAN keeps Tailwind's stock radius scale, so `rounded-lg` would
+     resolve -- to 0.5rem, where chat was drawn at 0.75rem. Re-deriving the
+     scale here restores the intended shape. It is scoped, and chat renders none
+     of KIRAN's own primitives inside this pane, so nothing else is repainted. */
+  --radius: 0.75rem;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+}

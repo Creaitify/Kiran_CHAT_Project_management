@@ -80,13 +80,13 @@ import {
   type UserGroup,
   type UserId,
 } from "../lib/chat-types";
-import { compareMessages, PAGE_SIZE } from "../lib/paginate";
+import { compareMessages, pageBefore, PAGE_SIZE } from "../lib/paginate";
 import { mentionsUser, parseMentions, resolveMentionTargets, toPlainText } from "../lib/mentions";
 import { derivePreviews } from "../lib/link-preview";
 import { inviteIsUsable } from "../lib/invite-rules";
 import { draftKey } from "../lib/draft-key";
 import { ChatService } from "../services/chat.service";
-import { toIso } from "../services/wire";
+import { toIso, wireToRoom } from "../services/wire";
 import {
   bootstrapChat,
   directoryFromWorkspaceMembers,
@@ -98,6 +98,10 @@ import {
   writeLocalState,
 } from "./connector";
 import { backoffDelay, createApiTransport, TransportError, type Transport } from "./transport";
+// shell
+import { useAppContext } from "@/apps/use-app-context";
+import { useMember } from "@/hooks/store/use-member";
+import type { IWorkspaceMember } from "@plane/types";
 
 /**
  * Connector reporting, kept because the diagnostics panel renders it and
@@ -291,7 +295,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   // not from an env var. This is the single largest behavioural difference
   // between this store and the one it was ported from.
   const { currentUser: signedInUser, workspaceSlug } = useAppContext();
-  const { workspaceMemberIds, getWorkspaceMemberDetails } = useMember();
+  const {
+    workspace: { workspaceMemberIds, getWorkspaceMemberDetails },
+  } = useMember();
 
   const currentUserId: UserId = signedInUser?.id ?? "";
 
@@ -304,9 +310,18 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     () =>
       directoryFromWorkspaceMembers(
         (workspaceMemberIds ?? [])
-          .map((id) => getWorkspaceMemberDetails(id))
-          .filter((detail): detail is NonNullable<typeof detail> => Boolean(detail?.member))
-          .map((detail) => ({ member: detail.member as never, role: detail.role }))
+          .map((id: string) => getWorkspaceMemberDetails(id))
+          .filter((detail): detail is IWorkspaceMember => Boolean(detail?.member))
+          .map((detail: IWorkspaceMember) => ({
+            member: {
+              id: detail.member.id,
+              display_name: detail.member.display_name,
+              first_name: detail.member.first_name,
+              last_name: detail.member.last_name,
+              ...(detail.member.email ? { email: detail.member.email } : {}),
+            },
+            role: Number(detail.role),
+          }))
       ),
     [workspaceMemberIds, getWorkspaceMemberDetails]
   );
@@ -2228,7 +2243,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     setOnline,
     outbox,
 
-    connectorKind: data.kind,
+    connectorKind: "api" as const,
     connectorStatus,
 
     pendingJump,
@@ -2238,13 +2253,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     plainText,
   };
 
-  // Presence heartbeat stand-in: keeps the seeded directory honest about the
-  // viewer being online. A real client would drive this from the socket.
-  useEffect(() => {
-    setUsers((current) =>
-      current.map((user) => (user.id === currentUserId ? { ...user, online: true } : user)),
-    );
-  }, [currentUserId]);
+  // The presence heartbeat that used to live here is gone. It marked the viewer
+  // online in a directory chat owned; the directory is now derived from the
+  // workspace member store, and nothing is publishing presence yet, so writing
+  // to it would be inventing a fact. `online: false` for everyone is at least
+  // true.
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
 }

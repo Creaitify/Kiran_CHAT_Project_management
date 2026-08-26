@@ -128,7 +128,14 @@ function MarkdownContentImpl({
     <div className={cn("md-body", onPrimary && "md-on-primary", className)}>
       <ReactMarkdown
         remarkPlugins={plugins}
-        rehypePlugins={[[rehypeHighlight, { detect: true, ignoreMissing: true }]]}
+        // `as never` because apps/web resolves two copies of `unified`:
+        // rehype-highlight is typed against one `Plugin`, react-markdown against
+        // the other, and the two are structurally identical but nominally
+        // distinct. No local type reconciles them -- only deduplicating the
+        // dependency would, and that is a lockfile change, not a component
+        // change. `detect` and `ignoreMissing` are both real options and the
+        // plugin runs correctly.
+        rehypePlugins={[[rehypeHighlight, { detect: true, ignoreMissing: true }]] as never}
         // Images are not rendered: an <img> with a remote src is a silent
         // read receipt / IP leak for whoever posted the link.
         disallowedElements={["img"]}

@@ -27,7 +27,7 @@
  */
 
 import { API_BASE_URL } from "@plane/constants";
-import { APIService } from "@plane/services";
+import { APIService } from "@/services/api.service";
 import type { TWireMessage, TWirePage, TWireRoom, TWireRoomMember, TWireUpdates } from "./wire";
 
 export type TCreateRoomPayload = {

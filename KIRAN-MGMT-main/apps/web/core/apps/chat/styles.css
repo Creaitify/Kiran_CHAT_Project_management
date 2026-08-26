@@ -6,6 +6,11 @@
  * See the LICENSE file for details.
  */
 
+/* The shadcn variable bridge for ui/. Registers the class names globally
+   (Tailwind v4 has no scoped @theme) but confines their values to
+   .kiran-chat-app -- see the header of that file. */
+@import "./ui/tokens.css";
+
 /* =========================================================================
    WHY THIS FILE IS BIGGER THAN YOU EXPECT
 

@@ -81,8 +81,10 @@ export function ChatJoinPage() {
 
             <Button
               className="mt-6 w-full rounded-lg"
-              onClick={() => {
-                const result = joinByCode(code);
+              onClick={async () => {
+                // Redeeming an invite is a server call now -- the client cannot
+                // be the authority on whether a link is still valid.
+                const result = await joinByCode(code);
                 if (result.error) {
                   setError(result.error);
                   return;
