@@ -4,32 +4,43 @@
  * See the LICENSE file for details.
  */
 
-// hoc/withDockItems.tsx
 import React from "react";
 import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
-import { PlaneNewIcon } from "@plane/propel/icons";
 import type { AppSidebarItemData } from "@/components/sidebar/sidebar-item";
-import { useWorkspacePaths } from "@/hooks/use-workspace-paths";
+// apps
+import { useApps } from "@/apps/use-apps";
 
 type WithDockItemsProps = {
   dockItems: (AppSidebarItemData & { shouldRender: boolean })[];
 };
 
+/**
+ * Supplies the app rail's items from the app registry.
+ *
+ * This used to be a one-element array literal containing Projects, which was
+ * honest while Projects was the only app. It now reads the registry, so a new
+ * app appears in the rail by existing rather than by editing this file.
+ *
+ * `shouldRender` is always true: permission filtering already happened in
+ * `useApps`, and an app the user cannot see never reaches this list. The flag
+ * stays in the shape because `AppSidebarItemsRoot` filters on it and other
+ * callers may have their own reasons to hide an item.
+ */
 export function withDockItems<P extends WithDockItemsProps>(WrappedComponent: React.ComponentType<P>) {
   const ComponentWithDockItems = observer(function ComponentWithDockItems(props: Omit<P, keyof WithDockItemsProps>) {
     const { workspaceSlug } = useParams();
-    const { isProjectsPath, isNotificationsPath } = useWorkspacePaths();
+    const { apps, activeApp } = useApps();
 
-    const dockItems: (AppSidebarItemData & { shouldRender: boolean })[] = [
-      {
-        label: "Projects",
-        icon: <PlaneNewIcon className="size-5" />,
-        href: `/${workspaceSlug}/`,
-        isActive: isProjectsPath && !isNotificationsPath,
-        shouldRender: true,
-      },
-    ];
+    const slug = workspaceSlug?.toString() ?? "";
+
+    const dockItems: (AppSidebarItemData & { shouldRender: boolean })[] = apps.map((app) => ({
+      label: app.label,
+      icon: app.icon,
+      href: app.path(slug),
+      isActive: app.key === activeApp?.key,
+      shouldRender: true,
+    }));
 
     return <WrappedComponent {...(props as P)} dockItems={dockItems} />;
   });

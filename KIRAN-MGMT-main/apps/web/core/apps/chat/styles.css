@@ -1,0 +1,522 @@
+/**
+ * Chat's stylesheet, ported into the KIRAN shell.
+ *
+ * Copyright (c) 2023-present Plane Software, Inc. and contributors
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * See the LICENSE file for details.
+ */
+
+/* =========================================================================
+   WHY THIS FILE IS BIGGER THAN YOU EXPECT
+
+   KIRAN's design system does not extend Tailwind's defaults -- it REPLACES
+   them. `packages/tailwind-config/variables.css` opens with:
+
+       --color-*: initial;
+       --text-*: initial;
+       --shadow-*: initial;
+
+   which deletes the entire stock palette, the t-shirt font scale and the stock
+   shadow scale, and substitutes KIRAN's own (`bg-canvas`, `text-11`,
+   `shadow-raised-200`). That is a good decision for a design system and a fatal
+   one for a port: the 24 chat components use `text-sm` 100 times, `text-xs` 66
+   times and `shadow-sm` 28 times, and under apps/web every one of those class
+   names currently resolves to nothing at all.
+
+   So there were two options.
+
+     (a) Rewrite every className across ~5000 lines of component code onto
+         KIRAN's scale. That is a rewrite wearing a port's clothes, it touches
+         every file, and every diff hunk is a chance to change behaviour.
+
+     (b) Re-register the handful of scale entries chat actually uses, and let
+         the components keep the class names they were written with.
+
+   This is (b). The re-registered entries are additive: KIRAN removed them, so
+   nothing in the shell uses them, so restoring them changes no existing pixel.
+
+   The cost is real and worth naming: `text-sm` now works everywhere in
+   apps/web, not just in chat, so someone can reach for it outside chat and
+   quietly bypass the design system. `@theme` is a global registry in Tailwind
+   v4 and cannot be scoped to a selector, so there is no version of (b) that
+   avoids this. If that trade stops being acceptable, the fix is (a), done
+   deliberately as its own change -- not a slow drift of half-converted files.
+
+   Everything that CAN be scoped is scoped, under `.kiran-chat-app`.
+   ========================================================================= */
+
+/* -------------------------------------------------------------------------
+   1. Scale entries KIRAN removed that the chat components depend on.
+   Values are Tailwind v4 stock, so `text-sm` means what it has always meant.
+   ------------------------------------------------------------------------- */
+
+@theme {
+  --text-xs: 0.75rem;
+  --text-xs--line-height: calc(1 / 0.75);
+  --text-sm: 0.875rem;
+  --text-sm--line-height: calc(1.25 / 0.875);
+  --text-base: 1rem;
+  --text-base--line-height: calc(1.5 / 1);
+  --text-lg: 1.125rem;
+  --text-lg--line-height: calc(1.75 / 1.125);
+  --text-xl: 1.25rem;
+  --text-xl--line-height: calc(1.75 / 1.25);
+  --text-5xl: 3rem;
+  --text-5xl--line-height: 1;
+  --text-7xl: 4.5rem;
+  --text-7xl--line-height: 1;
+
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+
+  /* The only stock palette entries chat reaches for: scheduled-message warnings
+     (amber), the AI accent gradient (sky/violet) and one dark overlay. */
+  --color-amber-200: oklch(0.924 0.12 95.746);
+  --color-amber-300: oklch(0.879 0.169 91.605);
+  --color-amber-400: oklch(0.828 0.189 84.429);
+  --color-amber-500: oklch(0.769 0.188 70.08);
+  --color-amber-600: oklch(0.666 0.179 58.318);
+  --color-amber-700: oklch(0.555 0.163 48.998);
+  --color-amber-900: oklch(0.414 0.112 45.904);
+  --color-sky-300: oklch(0.828 0.111 230.318);
+  --color-sky-500: oklch(0.685 0.169 237.323);
+  --color-violet-500: oklch(0.606 0.25 292.717);
+  --color-slate-950: oklch(0.129 0.042 264.695);
+
+  /* Chat's semantic names, exposed as utilities: bg-surface, text-ai, bg-online. */
+  --color-surface: var(--chat-surface);
+  --color-surface-2: var(--chat-surface-2);
+  --color-ai: var(--chat-ai);
+  --color-ai-foreground: var(--chat-ai-foreground);
+  --color-online: var(--chat-online);
+}
+
+/* -------------------------------------------------------------------------
+   2. Chat's own palette.
+
+   Scoped to .kiran-chat-app so it cannot reach the rest of the shell. The
+   variables are prefixed `--chat-*` rather than reusing shadcn's bare
+   `--background` / `--foreground` names, because those are common enough that
+   a future dependency could define them and silently repaint the app.
+
+   `ui/tokens.css` maps the bare shadcn names onto these, in the same scope.
+   ------------------------------------------------------------------------- */
+
+.kiran-chat-app {
+  color-scheme: light;
+  --chat-radius: 0.75rem;
+  --chat-background: #eaf6ff;
+  --chat-foreground: #102342;
+  --chat-surface: rgb(255 255 255 / 82%);
+  --chat-surface-2: rgb(239 248 255 / 82%);
+  --chat-card: rgb(255 255 255 / 90%);
+  --chat-card-foreground: #102342;
+  --chat-popover: rgb(255 255 255 / 96%);
+  --chat-popover-foreground: #102342;
+  --chat-primary: #176ee8;
+  --chat-primary-foreground: #ffffff;
+  --chat-secondary: rgb(222 241 255 / 82%);
+  --chat-secondary-foreground: #254264;
+  --chat-muted: rgb(225 240 251 / 78%);
+  --chat-muted-foreground: #58708f;
+  --chat-accent: rgb(205 235 255 / 88%);
+  --chat-accent-foreground: #075ec7;
+  --chat-destructive: #d92d3e;
+  --chat-destructive-foreground: #ffffff;
+  --chat-border: rgb(76 137 207 / 24%);
+  --chat-input: rgb(76 137 207 / 34%);
+  --chat-ring: #168eea;
+  --chat-ai: #087edc;
+  --chat-ai-foreground: #ffffff;
+  --chat-online: #079455;
+  --chat-gradient-ai: linear-gradient(135deg, rgb(241 251 255 / 96%) 0%, rgb(221 240 255 / 92%) 100%);
+  --chat-gradient-brand: linear-gradient(135deg, #16bce9 0%, #217de8 48%, #334cbe 100%);
+  --chat-canvas-gradient:
+    radial-gradient(circle at 14% 18%, rgb(26 192 233 / 15%) 0, transparent 31%),
+    radial-gradient(circle at 82% 24%, rgb(50 88 228 / 13%) 0, transparent 36%),
+    radial-gradient(circle at 58% 94%, rgb(25 167 222 / 11%) 0, transparent 34%),
+    linear-gradient(145deg, rgb(248 253 255 / 92%) 0%, rgb(225 242 255 / 88%) 100%);
+  --chat-shadow-float: 0 24px 60px -28px rgb(15 65 120 / 38%);
+  --chat-shadow-soft: 0 1px 2px rgb(19 66 115 / 7%), 0 12px 30px -20px rgb(28 99 169 / 30%);
+}
+
+/* KIRAN puts `.dark` on the document element, the same convention chat used,
+   so the dark palette needs no translation -- only rescoping. */
+.dark .kiran-chat-app {
+  color-scheme: dark;
+  --chat-background: #030812;
+  --chat-foreground: #edf7ff;
+  --chat-surface: rgb(6 16 34 / 82%);
+  --chat-surface-2: rgb(11 27 53 / 84%);
+  --chat-card: rgb(8 20 41 / 92%);
+  --chat-card-foreground: #edf7ff;
+  --chat-popover: rgb(7 18 37 / 97%);
+  --chat-popover-foreground: #edf7ff;
+  --chat-primary: #43a8ff;
+  --chat-primary-foreground: #03101f;
+  --chat-secondary: rgb(17 43 73 / 86%);
+  --chat-secondary-foreground: #d1e8f9;
+  --chat-muted: rgb(14 36 64 / 84%);
+  --chat-muted-foreground: #91aac2;
+  --chat-accent: rgb(13 56 97 / 88%);
+  --chat-accent-foreground: #a8dcff;
+  --chat-destructive: #f4677a;
+  --chat-destructive-foreground: #1a0509;
+  --chat-border: rgb(88 167 232 / 21%);
+  --chat-input: rgb(104 178 235 / 30%);
+  --chat-ring: #4bc5ff;
+  --chat-ai: #65c8ff;
+  --chat-ai-foreground: #06121f;
+  --chat-online: #35d08a;
+  --chat-gradient-ai: linear-gradient(135deg, rgb(14 42 76 / 94%) 0%, rgb(8 24 48 / 94%) 100%);
+  --chat-gradient-brand: linear-gradient(135deg, #1bc7e9 0%, #2589ec 50%, #4554ce 100%);
+  --chat-canvas-gradient:
+    radial-gradient(circle at 15% 20%, rgb(13 166 211 / 12%) 0, transparent 32%),
+    radial-gradient(circle at 84% 22%, rgb(48 76 221 / 13%) 0, transparent 38%),
+    radial-gradient(circle at 58% 95%, rgb(9 119 176 / 10%) 0, transparent 35%),
+    linear-gradient(145deg, rgb(3 9 20 / 96%) 0%, rgb(7 19 40 / 94%) 100%);
+  --chat-shadow-float: 0 28px 70px -30px rgb(0 0 0 / 80%);
+  --chat-shadow-soft: 0 1px 2px rgb(0 0 0 / 35%), 0 14px 34px -24px rgb(0 0 0 / 75%);
+}
+
+/* -------------------------------------------------------------------------
+   3. Base rules.
+
+   The original set these on `body`. Here they belong to the chat pane only --
+   the shell owns the document, and chat is a tenant in it.
+   ------------------------------------------------------------------------- */
+
+.kiran-chat-app {
+  color: var(--chat-foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+.kiran-chat-app button:focus-visible,
+.kiran-chat-app [role="button"]:focus-visible,
+.kiran-chat-app input:focus-visible,
+.kiran-chat-app textarea:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--chat-ring) 42%, transparent);
+  outline-offset: 2px;
+}
+
+/* -------------------------------------------------------------------------
+   4. Utilities.
+
+   `@utility` is global in Tailwind v4 and cannot be scoped, so every name here
+   is one chat invented -- `glass`, `ai-card`, `animate-msg-in`. None collide
+   with a KIRAN utility, and each body reads only `--chat-*` variables, so
+   outside `.kiran-chat-app` they resolve to nothing rather than to something
+   wrong.
+
+   `ambient-orb` is deliberately empty, exactly as in the original: the shell
+   already paints one pair of animated orbs at the application root, and a
+   second pair inside a scroll container is the bug this no-op prevents.
+   ------------------------------------------------------------------------- */
+
+@utility glass {
+  background: var(--chat-surface);
+  border: 1px solid var(--chat-border);
+  box-shadow: var(--chat-shadow-soft);
+  backdrop-filter: blur(22px) saturate(135%);
+}
+
+@utility ai-card {
+  background: var(--chat-gradient-ai);
+  border: 1px solid color-mix(in srgb, var(--chat-ai) 24%, var(--chat-border));
+  box-shadow: var(--chat-shadow-soft);
+}
+
+@utility brand-gradient {
+  background-image: var(--chat-gradient-brand);
+}
+
+@utility ambient-orb {
+  display: none;
+}
+
+@utility animate-msg-in {
+  animation: chat-msg-in 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@utility animate-pulse-ring {
+  animation: chat-pulse-ring 2s infinite;
+}
+
+@utility animate-ai-glow {
+  animation: chat-ai-glow 2.4s ease-in-out infinite;
+}
+
+/* Keyframes are global too; prefixed so they cannot shadow a shell animation. */
+@keyframes chat-msg-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes chat-pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--chat-online) 60%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@keyframes chat-ai-glow {
+  0%,
+  100% {
+    opacity: 0.72;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes chat-gradient-breathe {
+  from {
+    background-position: 0% 0%;
+  }
+  to {
+    background-position: 100% 55%;
+  }
+}
+
+/* -------------------------------------------------------------------------
+   5. Named surfaces.
+
+   `.workspace-shell` and `.brand-logo-*` are gone: they styled chat's own page
+   frame and masthead, which the KIRAN shell now owns. What survives is the
+   chrome that belongs to chat's interior.
+   ------------------------------------------------------------------------- */
+
+.kiran-chat-app .chat-header,
+.kiran-chat-app .conversation-rail,
+.kiran-chat-app .composer-shell {
+  background: color-mix(in srgb, var(--chat-surface) 90%, transparent);
+  backdrop-filter: blur(24px) saturate(145%);
+  -webkit-backdrop-filter: blur(24px) saturate(145%);
+}
+
+.kiran-chat-app .conversation-rail {
+  box-shadow: 18px 0 48px -42px rgb(18 81 147 / 58%);
+}
+
+.kiran-chat-app .chat-header {
+  box-shadow: 0 12px 34px -30px rgb(20 86 158 / 55%);
+}
+
+.kiran-chat-app .composer-shell {
+  box-shadow: 0 -18px 44px -40px rgb(17 84 151 / 60%);
+}
+
+.kiran-chat-app .composer-shell textarea,
+.kiran-chat-app .composer-shell input {
+  background: color-mix(in srgb, var(--chat-surface) 88%, transparent);
+  backdrop-filter: blur(16px);
+}
+
+.kiran-chat-app .chat-canvas {
+  background-color: transparent;
+  background-image: var(--chat-canvas-gradient);
+  background-size: 130% 130%;
+  animation: chat-gradient-breathe 18s ease-in-out infinite alternate;
+}
+
+.kiran-chat-app .message-bubble-mine {
+  border: 1px solid rgb(255 255 255 / 18%);
+  background: var(--chat-gradient-brand);
+  box-shadow:
+    0 14px 32px -20px rgb(31 89 211 / 70%),
+    inset 0 1px 0 rgb(255 255 255 / 20%);
+}
+
+.kiran-chat-app .message-bubble-other {
+  background: color-mix(in srgb, var(--chat-surface) 92%, transparent);
+  box-shadow:
+    var(--chat-shadow-soft),
+    inset 0 1px 0 rgb(255 255 255 / 34%);
+  backdrop-filter: blur(18px) saturate(135%);
+  -webkit-backdrop-filter: blur(18px) saturate(135%);
+}
+
+.dark .kiran-chat-app .message-bubble-other {
+  box-shadow:
+    var(--chat-shadow-soft),
+    inset 0 1px 0 rgb(126 206 255 / 8%);
+}
+
+/* -------------------------------------------------------------------------
+   6. Rendered markdown inside a message bubble.
+
+   Not routed through KIRAN's editor styles on purpose. MarkdownContent omits
+   rehype-raw, disallows <img> and gates every href -- the CSS assumes that
+   restricted element set, and the editor's assumes a much wider one.
+   ------------------------------------------------------------------------- */
+
+.kiran-chat-app .md-body {
+  overflow-wrap: anywhere;
+}
+.kiran-chat-app .md-body > * + * {
+  margin-top: 0.5rem;
+}
+.kiran-chat-app .md-body ul,
+.kiran-chat-app .md-body ol {
+  padding-inline-start: 1.25rem;
+  list-style-position: outside;
+}
+.kiran-chat-app .md-body ul {
+  list-style-type: disc;
+}
+.kiran-chat-app .md-body ol {
+  list-style-type: decimal;
+}
+.kiran-chat-app .md-body li + li {
+  margin-top: 0.15rem;
+}
+.kiran-chat-app .md-body a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.kiran-chat-app .md-body blockquote {
+  border-inline-start: 3px solid color-mix(in srgb, currentcolor 35%, transparent);
+  padding-inline-start: 0.7rem;
+  opacity: 0.85;
+}
+.kiran-chat-app .md-body code {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.86em;
+  background: color-mix(in srgb, currentcolor 12%, transparent);
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+}
+.kiran-chat-app .md-body pre {
+  background: var(--chat-surface-2);
+  color: var(--chat-foreground);
+  border: 1px solid var(--chat-border);
+  border-radius: 8px;
+  padding: 0.7rem 0.85rem;
+  overflow-x: auto;
+  max-width: 100%;
+}
+.kiran-chat-app .md-body pre code {
+  background: none;
+  padding: 0;
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+.kiran-chat-app .md-body table {
+  display: block;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: 0.85em;
+}
+.kiran-chat-app .md-body th,
+.kiran-chat-app .md-body td {
+  border: 1px solid var(--chat-border);
+  padding: 0.28rem 0.55rem;
+  text-align: start;
+}
+.kiran-chat-app .md-body h1,
+.kiran-chat-app .md-body h2,
+.kiran-chat-app .md-body h3 {
+  font-weight: 650;
+  font-size: 1em;
+}
+.kiran-chat-app .md-body hr {
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, currentcolor 25%, transparent);
+}
+
+/* highlight.js tokens, theme-aware. */
+.kiran-chat-app .md-body .hljs-comment,
+.kiran-chat-app .md-body .hljs-quote {
+  color: #7b8794;
+  font-style: italic;
+}
+.kiran-chat-app .md-body .hljs-keyword,
+.kiran-chat-app .md-body .hljs-selector-tag,
+.kiran-chat-app .md-body .hljs-literal,
+.kiran-chat-app .md-body .hljs-type {
+  color: #a33aa3;
+}
+.kiran-chat-app .md-body .hljs-string,
+.kiran-chat-app .md-body .hljs-regexp,
+.kiran-chat-app .md-body .hljs-addition {
+  color: #0a7d47;
+}
+.kiran-chat-app .md-body .hljs-number,
+.kiran-chat-app .md-body .hljs-built_in,
+.kiran-chat-app .md-body .hljs-symbol {
+  color: #b45309;
+}
+.kiran-chat-app .md-body .hljs-title,
+.kiran-chat-app .md-body .hljs-name,
+.kiran-chat-app .md-body .hljs-section {
+  color: #0969da;
+}
+.kiran-chat-app .md-body .hljs-attr,
+.kiran-chat-app .md-body .hljs-attribute,
+.kiran-chat-app .md-body .hljs-variable {
+  color: #b7410e;
+}
+.dark .kiran-chat-app .md-body .hljs-comment,
+.dark .kiran-chat-app .md-body .hljs-quote {
+  color: #8b98a8;
+}
+.dark .kiran-chat-app .md-body .hljs-keyword,
+.dark .kiran-chat-app .md-body .hljs-selector-tag,
+.dark .kiran-chat-app .md-body .hljs-literal,
+.dark .kiran-chat-app .md-body .hljs-type {
+  color: #e191e6;
+}
+.dark .kiran-chat-app .md-body .hljs-string,
+.dark .kiran-chat-app .md-body .hljs-regexp,
+.dark .kiran-chat-app .md-body .hljs-addition {
+  color: #6fd39b;
+}
+.dark .kiran-chat-app .md-body .hljs-number,
+.dark .kiran-chat-app .md-body .hljs-built_in,
+.dark .kiran-chat-app .md-body .hljs-symbol {
+  color: #f0b072;
+}
+.dark .kiran-chat-app .md-body .hljs-title,
+.dark .kiran-chat-app .md-body .hljs-name,
+.dark .kiran-chat-app .md-body .hljs-section {
+  color: #7db3fc;
+}
+.dark .kiran-chat-app .md-body .hljs-attr,
+.dark .kiran-chat-app .md-body .hljs-attribute,
+.dark .kiran-chat-app .md-body .hljs-variable {
+  color: #f2a385;
+}
+
+/* A code block on a coloured own-message bubble needs its own surface. */
+.kiran-chat-app .md-on-primary pre {
+  background: rgb(0 0 0 / 22%);
+  border-color: rgb(255 255 255 / 18%);
+  color: inherit;
+}
+.kiran-chat-app .md-on-primary pre code,
+.kiran-chat-app .md-on-primary pre .hljs-keyword,
+.kiran-chat-app .md-on-primary pre .hljs-string,
+.kiran-chat-app .md-on-primary pre .hljs-number,
+.kiran-chat-app .md-on-primary pre .hljs-title,
+.kiran-chat-app .md-on-primary pre .hljs-attr,
+.kiran-chat-app .md-on-primary pre .hljs-comment,
+.kiran-chat-app .md-on-primary pre .hljs-built_in,
+.kiran-chat-app .md-on-primary pre .hljs-literal,
+.kiran-chat-app .md-on-primary pre .hljs-type,
+.kiran-chat-app .md-on-primary pre .hljs-name {
+  color: inherit;
+}

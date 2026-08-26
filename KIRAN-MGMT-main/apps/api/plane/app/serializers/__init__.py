@@ -135,3 +135,12 @@ from .draft import (
     DraftIssueSerializer,
     DraftIssueDetailSerializer,
 )
+
+from .chat import (
+    ChatRoomSerializer,
+    ChatRoomLiteSerializer,
+    ChatRoomMemberSerializer,
+    ChatMessageSerializer,
+    ChatMessageCreateSerializer,
+    ChatRoomInviteSerializer,
+)

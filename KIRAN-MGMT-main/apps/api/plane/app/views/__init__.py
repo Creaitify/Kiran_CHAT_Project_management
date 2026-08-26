@@ -240,3 +240,12 @@ from .notification.base import MarkAllReadNotificationViewSet
 from .user.base import AccountEndpoint, ProfileEndpoint, UserSessionEndpoint
 
 from .timezone.base import TimezoneEndpoint
+
+from .chat.room import (
+    ChatRoomViewSet,
+    ChatRoomMemberViewSet,
+    ChatRoomReadMarkerViewSet,
+)
+from .chat.message import ChatMessageViewSet
+from .chat.invite import ChatRoomInviteViewSet, ChatInviteJoinViewSet
+from .chat.updates import ChatUpdatesViewSet

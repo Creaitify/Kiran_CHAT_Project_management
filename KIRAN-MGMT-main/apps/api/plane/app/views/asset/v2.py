@@ -363,20 +363,28 @@ class WorkspaceFileAssetEndpoint(BaseAPIView):
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
-        # Check if the file type is allowed
-        allowed_types = [
-            "image/jpeg",
-            "image/png",
-            "image/webp",
-            "image/jpg",
-            "image/gif",
-        ]
+        # Check if the file type is allowed.
+        #
+        # This endpoint was written for logos, covers and avatars, so images were
+        # the only sensible answer. Chat attachments are the first workspace-scoped
+        # asset that is legitimately a PDF or a spreadsheet, so they go through the
+        # same broad allowlist the issue-attachment endpoint already uses rather
+        # than a wider one invented here.
+        if entity_type == FileAsset.EntityTypeContext.CHAT_ATTACHMENT:
+            allowed_types = settings.ATTACHMENT_MIME_TYPES
+            type_error = "Invalid file type."
+        else:
+            allowed_types = [
+                "image/jpeg",
+                "image/png",
+                "image/webp",
+                "image/jpg",
+                "image/gif",
+            ]
+            type_error = "Invalid file type. Only JPEG, PNG, WebP, JPG and GIF files are allowed."
         if type not in allowed_types:
             return Response(
-                {
-                    "error": "Invalid file type. Only JPEG, PNG, WebP, JPG and GIF files are allowed.",
-                    "status": False,
-                },
+                {"error": type_error, "status": False},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
