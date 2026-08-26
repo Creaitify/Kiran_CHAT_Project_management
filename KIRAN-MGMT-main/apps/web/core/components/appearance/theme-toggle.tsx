@@ -23,7 +23,9 @@ import { useUserProfile } from "@/hooks/store/user";
  * profile and applied imperatively, so there is nothing for it to render before
  * sign-in. It stays in profile settings, the only place it can be configured.
  */
-const TOGGLE_THEME_OPTIONS: I_THEME_OPTION[] = THEME_OPTIONS.filter((option) => option.value !== "custom");
+const TOGGLE_THEME_OPTIONS: I_THEME_OPTION[] = THEME_OPTIONS.filter(
+  (option) => option.value !== "custom",
+);
 
 /**
  * Matches the `dark` variant selector in tailwind-config's variables.css, which
@@ -66,14 +68,19 @@ function useThemePreference() {
   const selectTheme = useCallback(
     (option: I_THEME_OPTION) => {
       setTheme(option.value);
-      // Signed out there is no user row to write to, and that is fine —
-      // localStorage carries the choice until the profile theme takes over.
-      if (!userProfile) return;
+      // Guard on `id`, not on the object. ProfileStore initialises `data` to a
+      // populated-shape literal with every field undefined, so the store value is
+      // truthy even when nobody is signed in — `if (!userProfile)` never fires.
+      // Getting this wrong is not a no-op: the PATCH goes out, 401s, and the
+      // interceptor in api.service.ts turns any 401 into a window.location
+      // .replace(), so switching theme on the sign-in page did a full page load
+      // instead of a token swap.
+      if (!userProfile?.id) return;
       updateUserTheme({ theme: option.value }).catch((error: unknown) => {
         console.error("Error updating theme:", error);
       });
     },
-    [setTheme, updateUserTheme, userProfile]
+    [setTheme, updateUserTheme, userProfile?.id],
   );
 
   return { currentTheme, isMounted, resolvedTheme, selectTheme };
@@ -84,7 +91,7 @@ function ThemeSwatch({ option, className }: { option: I_THEME_OPTION; className?
     <div
       className={cn(
         "relative flex h-4 w-4 rotate-45 transform items-center justify-center rounded-full border-1",
-        className
+        className,
       )}
       style={{ borderColor: option.icon.border }}
     >
@@ -110,7 +117,11 @@ export const ThemeToggle = observer(function ThemeToggle({ className }: TThemeTo
   const { currentTheme, isMounted, resolvedTheme, selectTheme } = useThemePreference();
 
   const TriggerIcon =
-    !isMounted || currentTheme?.value === "system" ? Monitor : isDarkTheme(resolvedTheme) ? Moon : Sun;
+    !isMounted || currentTheme?.value === "system"
+      ? Monitor
+      : isDarkTheme(resolvedTheme)
+        ? Moon
+        : Sun;
 
   return (
     <CustomMenu
@@ -122,7 +133,7 @@ export const ThemeToggle = observer(function ThemeToggle({ className }: TThemeTo
         "grid size-8 place-items-center rounded-md border border-subtle-1 text-secondary",
         "transition-colors hover:bg-layer-2 hover:text-primary",
         "focus-visible:outline-accent-primary focus-visible:outline-2 focus-visible:outline-offset-2",
-        className
+        className,
       )}
       customButton={<TriggerIcon className="size-4 shrink-0" aria-hidden="true" />}
       optionsClassName="w-56 p-1"
@@ -174,7 +185,7 @@ export const ThemeOptionsRow = observer(function ThemeOptionsRow() {
               className={cn(
                 "grid size-7 place-items-center rounded-md border transition-colors",
                 "focus-visible:outline-accent-primary focus-visible:outline-2 focus-visible:outline-offset-2",
-                isActive ? "border-accent-primary bg-layer-2" : "border-subtle-1 hover:bg-layer-2"
+                isActive ? "border-accent-primary bg-layer-2" : "border-subtle-1 hover:bg-layer-2",
               )}
             >
               <ThemeSwatch option={option} />
