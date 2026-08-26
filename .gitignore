@@ -1,0 +1,42 @@
+# Workspace-level safety net. The two applications carry their own .gitignore
+# files and those still apply; this exists so that a miss in either one cannot
+# put dependencies or secrets into history.
+
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Secrets. .env.example files are deliberately NOT ignored — they are the
+# documentation for which variables exist, and CONNECTORS.md points at them.
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Build output
+.next/
+.turbo/
+.react-router/
+dist/
+build/
+*.tsbuildinfo
+
+# Python (apps/api)
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Generated locale link. `packages/i18n/locales` is a Windows directory junction
+# pointing at `packages/i18n/src/locales`, recreated on install and build by
+# packages/i18n/scripts/link-locales.mjs. Committing it would either duplicate
+# every locale or store a link that a checkout without symlink support silently
+# turns into an empty directory — which blanks every string in the UI with no
+# error anywhere. Let the build regenerate it.
+KIRAN-MGMT-main/packages/i18n/locales
+
+# Local machine state
+.claude/settings.local.json
+.DS_Store
+Thumbs.db
+*.log

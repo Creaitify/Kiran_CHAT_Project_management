@@ -1,0 +1,231 @@
+/**
+ * KIRANOS glass layer.
+ *
+ * Adds the translucency, blur and ambient depth of the KIRANOS design language
+ * on top of Plane's Canvas/Surface/Layer token system. This file only adds
+ * presentation; it never changes layout, spacing or behaviour.
+ *
+ * Scope rules, deliberately:
+ *   - Glass is applied to CHROME only (app rail, top bar, sidebar, dialogs,
+ *     dropdowns, popovers). Cards, list rows and grid cells stay opaque so the
+ *     dense views (spreadsheet, gantt, kanban) keep their legibility and their
+ *     scroll performance.
+ *   - The high-contrast themes are excluded entirely. They exist so people who
+ *     need solid, maximum-contrast surfaces can get them; blurring those
+ *     surfaces would defeat their purpose.
+ *   - Every animation is gated behind prefers-reduced-motion.
+ */
+
+@layer base {
+  :root,
+  :host {
+    /* ---------- Glass recipe ---------- */
+    --kx-blur-chrome: 24px;
+    --kx-saturate-chrome: 145%;
+    --kx-blur-panel: 22px;
+    --kx-saturate-panel: 135%;
+
+    /* Translucent derivatives of the existing surface tokens. Because these
+       are color-mixed from the semantic tokens rather than hardcoded, they
+       follow any future retheme automatically. */
+    --kx-chrome-bg: color-mix(in srgb, var(--background-color-canvas) 78%, transparent);
+    --kx-panel-bg: color-mix(in srgb, var(--background-color-surface-1) 86%, transparent);
+    --kx-raised-bg: color-mix(in srgb, var(--background-color-surface-1) 92%, transparent);
+
+    /* ---------- Shadows ---------- */
+    --kx-shadow-soft: 0 1px 2px oklch(0.32 0.06 255 / 8%), 0 12px 30px -20px oklch(0.42 0.09 255 / 32%);
+    --kx-shadow-float: 0 24px 60px -28px oklch(0.35 0.08 255 / 40%);
+
+    /* ---------- Brand gradients ----------
+       Two gradients, and the distinction matters.
+
+       `--kx-gradient-brand` is the vivid KIRANOS signature. It is DECORATIVE
+       only — logos, ambient orbs, empty-state art. Never put text on it: white
+       text hits 2.23:1 at the cyan stop.
+
+       `--kx-gradient-brand-safe` is the same cyan -> blue -> indigo movement
+       pulled down in lightness so that white text clears 4.5:1 across the
+       entire ramp (measured 4.73:1 at its lightest point). Use this one for
+       any surface that carries text. */
+    --kx-gradient-brand: linear-gradient(135deg, #16bce9 0%, #217de8 48%, #334cbe 100%);
+    --kx-gradient-brand-safe: linear-gradient(135deg, #007ca7 0%, #006cdb 50%, #344cbe 100%);
+
+    /* ---------- Ambient field ---------- */
+    --kx-orb-1: oklch(0.72 0.13 224 / 26%);
+    --kx-orb-2: oklch(0.52 0.18 264 / 22%);
+    --kx-orb-3: oklch(0.66 0.14 238 / 18%);
+
+    /* Dark overrides must be nested inside the :root rule, matching the
+       pattern in variables.css. At the @layer level the variant compiles
+       without a :root selector and the overrides silently never apply. */
+    @variant dark {
+      --kx-chrome-bg: color-mix(in srgb, var(--background-color-canvas) 74%, transparent);
+      --kx-panel-bg: color-mix(in srgb, var(--background-color-surface-1) 84%, transparent);
+      --kx-raised-bg: color-mix(in srgb, var(--background-color-surface-1) 90%, transparent);
+
+      --kx-shadow-soft: 0 1px 2px oklch(0 0 0 / 38%), 0 14px 34px -24px oklch(0 0 0 / 76%);
+      --kx-shadow-float: 0 28px 70px -30px oklch(0 0 0 / 82%);
+
+      --kx-gradient-brand: linear-gradient(135deg, #1bc7e9 0%, #2589ec 50%, #4554ce 100%);
+      --kx-gradient-brand-safe: linear-gradient(135deg, #0086b4 0%, #0d74e0 50%, #3d55c6 100%);
+
+      --kx-orb-1: oklch(0.62 0.13 226 / 20%);
+      --kx-orb-2: oklch(0.46 0.19 266 / 22%);
+      --kx-orb-3: oklch(0.55 0.13 240 / 15%);
+    }
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Utilities                                                                  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Frame chrome — app rail, top bar, sidebar, composer-style bars.
+ * The strongest blur in the system; these sit directly over the ambient field.
+ */
+@utility kx-chrome {
+  background: var(--kx-chrome-bg);
+  backdrop-filter: blur(var(--kx-blur-chrome)) saturate(var(--kx-saturate-chrome));
+  -webkit-backdrop-filter: blur(var(--kx-blur-chrome)) saturate(var(--kx-saturate-chrome));
+}
+
+/**
+ * Floating panels — dialogs, dropdown menus, popovers, command palette.
+ * Slightly more opaque than chrome because they carry dense text.
+ */
+@utility kx-panel {
+  background: var(--kx-panel-bg);
+  backdrop-filter: blur(var(--kx-blur-panel)) saturate(var(--kx-saturate-panel));
+  -webkit-backdrop-filter: blur(var(--kx-blur-panel)) saturate(var(--kx-saturate-panel));
+  box-shadow: var(--kx-shadow-float);
+}
+
+/**
+ * Raised cards that want a hint of glass without full translucency.
+ * Use sparingly — not for list rows.
+ */
+@utility kx-raised {
+  background: var(--kx-raised-bg);
+  backdrop-filter: blur(12px) saturate(120%);
+  -webkit-backdrop-filter: blur(12px) saturate(120%);
+  box-shadow: var(--kx-shadow-soft);
+}
+
+/** Decorative brand gradient. Never place text on this. */
+@utility kx-brand-gradient {
+  background-image: var(--kx-gradient-brand);
+}
+
+/** Brand gradient that is safe to place white text on. */
+@utility kx-brand-gradient-safe {
+  background-image: var(--kx-gradient-brand-safe);
+  color: #ffffff;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Ambient field                                                              */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Applied once, at the application root. Paints a slow-drifting field of
+ * blurred orbs behind everything so the translucent chrome has something to
+ * reveal. Without this the blur has nothing to do and the glass reads as flat
+ * grey.
+ */
+.kx-ambient {
+  position: relative;
+  isolation: isolate;
+}
+
+.kx-ambient::before,
+.kx-ambient::after {
+  position: absolute;
+  z-index: -1;
+  border-radius: 999px;
+  content: "";
+  pointer-events: none;
+  filter: blur(12px);
+  will-change: transform;
+}
+
+.kx-ambient::before {
+  top: -20rem;
+  left: 12%;
+  width: 44rem;
+  height: 44rem;
+  background: radial-gradient(circle, var(--kx-orb-1) 0%, transparent 68%);
+  animation: kx-drift 19s ease-in-out infinite alternate;
+}
+
+.kx-ambient::after {
+  right: -16rem;
+  bottom: -24rem;
+  width: 50rem;
+  height: 50rem;
+  background: radial-gradient(circle, var(--kx-orb-2) 0%, transparent 68%);
+  animation: kx-drift 24s ease-in-out -7s infinite alternate-reverse;
+}
+
+@keyframes kx-drift {
+  from {
+    transform: translate3d(-3%, -2%, 0) scale(0.94);
+  }
+  to {
+    transform: translate3d(6%, 5%, 0) scale(1.08);
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Opt-outs                                                                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * High-contrast themes get solid surfaces and no ambient field. People choose
+ * these themes because they need maximum separation between foreground and
+ * background — translucency is the opposite of that.
+ */
+[data-theme="light-contrast"],
+[data-theme="dark-contrast"] {
+  .kx-chrome {
+    background: var(--background-color-canvas);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .kx-panel,
+  .kx-raised {
+    background: var(--background-color-surface-1);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  &.kx-ambient::before,
+  &.kx-ambient::after,
+  .kx-ambient::before,
+  .kx-ambient::after {
+    display: none;
+  }
+}
+
+/**
+ * Browsers without backdrop-filter fall back to opaque surfaces rather than
+ * to unreadable near-transparent ones.
+ */
+@supports not (backdrop-filter: blur(1px)) {
+  .kx-chrome {
+    background: var(--background-color-canvas);
+  }
+
+  .kx-panel,
+  .kx-raised {
+    background: var(--background-color-surface-1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kx-ambient::before,
+  .kx-ambient::after {
+    animation: none;
+  }
+}

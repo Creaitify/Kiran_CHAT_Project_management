@@ -1,0 +1,17 @@
+[
+  {
+    "id": 1,
+    "name": "KCMS Demo Project",
+    "identifier": "KDP",
+    "description": "Welcome to the KCMS Demo Project! This project puts you in the driver’s seat of KCMS, the Kiran Cable Management System. Through curated work items, you’ll uncover key features, pick up best practices, and see how KCMS can streamline the way your team plans and tracks cable protection work — from enquiry and design through production, dispatch and site installation. Whether you’re running a single order or coordinating several sites at once, this demo is your launchpad to mastering KCMS. Jump in and see what it can do!",
+    "network": 2,
+    "cover_image": "https://images.unsplash.com/photo-1691230995681-480d86cbc135?auto=format&fit=crop&q=80&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&w=870&q=80",
+    "logo_props": {
+      "emoji": {
+        "url": "https://cdn.jsdelivr.net/npm/emoji-datasource-apple/img/apple/64/1f447.png",
+        "value": "128071"
+      },
+      "in_use": "emoji"
+    }
+  }
+]

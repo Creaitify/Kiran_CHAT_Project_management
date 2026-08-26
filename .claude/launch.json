@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "nexus-chat",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "CHATROOM-FINAL-main/nexus-chat"],
+      "port": 8080
+    },
+    {
+      "name": "kiran-storybook",
+      "runtimeExecutable": "corepack",
+      "runtimeArgs": ["pnpm@11.3.0", "--dir", "KIRAN-MGMT-main", "--filter=@plane/propel", "storybook"],
+      "port": 6006
+    },
+    {
+      "name": "kiran-web",
+      "runtimeExecutable": "corepack",
+      "runtimeArgs": ["pnpm@11.3.0", "--dir", "KIRAN-MGMT-main/apps/web", "dev"],
+      "port": 3000
+    }
+  ]
+}

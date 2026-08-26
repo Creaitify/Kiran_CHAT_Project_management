@@ -1,0 +1,131 @@
+@theme {
+  /* slide up */
+  --animate-slide-up: slide-up 0.3s ease-out forwards;
+  @keyframes slide-up {
+    from {
+      transform: translateY(10px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  /* slide in from bottom */
+  --animate-slide-in-from-bottom: slideInFromBottom 0.25s ease-out forwards;
+  @keyframes slideInFromBottom {
+    0% {
+      transform: translateY(100%);
+      opacity: 0;
+    }
+    100% {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  /* slide in from top */
+  --animate-slide-in-from-top: slideInFromTop 0.25s ease-out forwards;
+  @keyframes slideInFromTop {
+    0% {
+      transform: translateY(-100%);
+      opacity: 0;
+    }
+    100% {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  /* slide out */
+  --animate-slide-out: slideOut 0.25s ease-out forwards;
+  @keyframes slideOut {
+    0% {
+      transform: translateY(0);
+      opacity: 1;
+    }
+    100% {
+      transform: translateY(-100%);
+      opacity: 0;
+    }
+  }
+
+  /* slide out down */
+  --animate-slide-out-down: slideOutDown 0.25s ease-out forwards;
+  @keyframes slideOutDown {
+    0% {
+      transform: translateY(0);
+      opacity: 1;
+    }
+    100% {
+      transform: translateY(100%);
+      opacity: 0;
+    }
+  }
+
+  /* fade out */
+  --animate-fade-out: fadeOut 0.25s ease-out forwards;
+  @keyframes fadeOut {
+    0% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+
+  /* fade in */
+  --animate-fade-in: fadeIn 0.25s ease-out forwards;
+  @keyframes fadeIn {
+    0% {
+      opacity: 0;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+}
+
+/**
+ * Global reduced-motion gate — DESIGN.md 9 and 10.5.
+ *
+ * This lives here rather than in glass.css because this file is where the
+ * package's motion is defined: every --animate-* token and @keyframes above,
+ * plus the whole of Tailwind's transition-* / animate-* surface that consumes
+ * them. glass.css already carries its own prefers-reduced-motion rule, but that
+ * one only stops the two .kx-ambient orbs — it is a rule about the ambient
+ * field, not a motion policy. Until now it was the only prefers-reduced-motion
+ * query in the entire codebase, so every transition-* and animate-* elsewhere
+ * ran unconditionally, including the per-row transitions in dense scrolling
+ * views where hundreds fire at once.
+ *
+ * Cascade: these declarations are !important and unlayered. Author-important
+ * beats author-normal regardless of @layer or import order, so this wins over
+ * Tailwind's utilities (which are normal-weight, in @layer utilities) whether
+ * or not glass.css is imported after this file. index.css imports
+ * tailwindcss -> variables.css -> animations.css -> glass.css; nothing later in
+ * that chain declares motion !important, so nothing outranks this.
+ *
+ * It composes with, rather than fights, the glass.css rule: that one sets
+ * animation-name: none on the orbs, which this block does not touch, so the
+ * orbs stay fully stopped while everything else merely collapses to an
+ * instantaneous step.
+ *
+ * Near-zero rather than zero, and iteration-count 1 rather than 0, on purpose:
+ * animations still start and finish, so animationend / transitionend listeners
+ * fire and anything that reveals or unmounts on those events still works.
+ * Reduced motion means minimal, not broken.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
