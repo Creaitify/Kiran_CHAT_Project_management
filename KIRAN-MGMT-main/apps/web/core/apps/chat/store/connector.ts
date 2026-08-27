@@ -154,7 +154,8 @@ function readStateFrom(wireRooms: TWireRoom[]): ReadState {
  * chat app that will not open is not.
  */
 export async function bootstrapChat(service: ChatService, workspaceSlug: string): Promise<TChatBootstrap> {
-  const wireRooms = await service.listRooms(workspaceSlug);
+  const rawWireRooms = await service.listRooms(workspaceSlug);
+  const wireRooms = Array.isArray(rawWireRooms) ? rawWireRooms : [];
   const rooms = wireRooms.map(wireToRoom);
 
   // Alongside the room reads, not before them. Mention groups are cosmetic
@@ -162,14 +163,14 @@ export async function bootstrapChat(service: ChatService, workspaceSlug: string)
   // 500s, must cost the composer its group suggestions and nothing else.
   const userGroups = await service
     .listUserGroups(workspaceSlug)
-    .then((wire) => wire.map(wireToUserGroup))
+    .then((wire) => (Array.isArray(wire) ? wire.map(wireToUserGroup) : []))
     .catch(() => []);
 
   const pages = await Promise.all(
     wireRooms.map(async (room) => {
       try {
         const page = await service.listMessages(workspaceSlug, room.id, { limit: INITIAL_PAGE });
-        return { roomId: room.id, page };
+        return { roomId: room.id, page: page || { items: [], next_cursor: null, has_more: false } };
       } catch {
         return { roomId: room.id, page: { items: [], next_cursor: null, has_more: false } };
       }

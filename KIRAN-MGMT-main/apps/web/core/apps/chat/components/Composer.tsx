@@ -584,6 +584,8 @@ export function Composer({
             </span>
           )}
           <textarea
+            id="chat-message-input"
+            name="message"
             ref={inputRef}
             rows={1}
             value={value}

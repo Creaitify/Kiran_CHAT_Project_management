@@ -263,6 +263,8 @@ export function ConversationSidebar({
         <div className="relative px-4 pt-4">
           <Search className="absolute left-7 top-[calc(50%+0.5rem)] h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
+            id="chat-search-input"
+            name="chat-search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder={t("search.placeholder")}

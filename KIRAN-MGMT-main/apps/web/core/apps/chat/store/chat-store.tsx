@@ -99,6 +99,26 @@ import {
   subscribeToChatUpdates,
   writeLocalState,
 } from "./connector";
+
+const FALLBACK_USER: User = {
+  id: "unknown",
+  name: "Someone",
+  role: "Member",
+  online: false,
+  color: "slate",
+  timeZone: "UTC",
+};
+
+const FALLBACK_ROOM: Room = {
+  id: "general",
+  type: "group",
+  name: "General",
+  createdAt: 0,
+  adminIds: [],
+  participantIds: [],
+  mutedUserIds: [],
+};
+
 import { backoffDelay, createApiTransport, TransportError, type Transport } from "./transport";
 // shell
 import { useAppContext } from "@/apps/use-app-context";
@@ -476,8 +496,13 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   /* ---------------------------------------------------------------------- */
 
   const userById = useCallback(
-    (id: UserId) => users.find((user) => user.id === id) ?? users[0]!,
-    [users],
+    (id: UserId): User =>
+      users.find((user) => user.id === id) ??
+      users[0] ??
+      (id === currentUserId
+        ? { ...FALLBACK_USER, id: currentUserId || "unknown", name: "You", role: "Admin" }
+        : { ...FALLBACK_USER, id: id || "unknown" }),
+    [users, currentUserId],
   );
 
   const plainText = useCallback(
@@ -502,7 +527,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   );
 
   const activeRoom = useMemo(
-    () => rooms.find((room) => room.id === activeRoomId) ?? visibleRooms[0] ?? rooms[0]!,
+    () => rooms.find((room) => room.id === activeRoomId) ?? visibleRooms[0] ?? rooms[0] ?? FALLBACK_ROOM,
     [rooms, activeRoomId, visibleRooms],
   );
 
@@ -1078,7 +1103,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
    * checks; it gates the UI, and the endpoint gates the write.
    */
   const canManageUserGroups = useMemo(
-    () => userById(currentUserId).role === "Admin",
+    () => userById(currentUserId)?.role === "Admin",
     [userById, currentUserId],
   );
 

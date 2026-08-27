@@ -31,6 +31,33 @@ export default defineConfig(() => ({
     },
     dedupe: ["react", "react-dom", "@headlessui/react"],
   },
+  // Chat, Notes, Operations and Hello are reached only through lazily imported
+  // route modules, so Vite's dependency scan at startup never sees them. The
+  // first visit to one of those routes made Vite discover their deps and
+  // re-optimize mid-request, which 504s the in-flight route module ("Outdated
+  // Optimize Dep"). React Router then reloads, hits the same race, and loops --
+  // leaving an empty <main>. Pre-bundling them at startup removes the race.
+  optimizeDeps: {
+    include: [
+      "@radix-ui/react-dialog",
+      "@radix-ui/react-dropdown-menu",
+      "@radix-ui/react-slider",
+      "@radix-ui/react-slot",
+      "@radix-ui/react-tabs",
+      "@radix-ui/react-tooltip",
+      "@tanstack/react-virtual",
+      "class-variance-authority",
+      "cmdk",
+      "lucide-react",
+      "mobx-react",
+      "next-themes",
+      "react-markdown",
+      "rehype-highlight",
+      "remark-gfm",
+      "sonner",
+      "uuid",
+    ],
+  },
   server: {
     host: "127.0.0.1",
   },

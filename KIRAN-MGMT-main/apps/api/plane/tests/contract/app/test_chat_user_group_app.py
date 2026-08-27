@@ -287,7 +287,8 @@ class TestGroupMentionsCountAsMentions:
             "grp",
         )
 
-        rooms = session_client.get(reverse("chat-room", kwargs={"slug": workspace.slug})).json()
+        response = session_client.get(reverse("chat-room", kwargs={"slug": workspace.slug})).json()
+        rooms = response.get("results", response) if isinstance(response, dict) else response
         unread = next(entry["unread"] for entry in rooms if entry["id"] == str(room.id))
 
         assert unread["total"] == 1
@@ -310,7 +311,8 @@ class TestGroupMentionsCountAsMentions:
             "grp",
         )
 
-        rooms = session_client.get(reverse("chat-room", kwargs={"slug": workspace.slug})).json()
+        response = session_client.get(reverse("chat-room", kwargs={"slug": workspace.slug})).json()
+        rooms = response.get("results", response) if isinstance(response, dict) else response
         unread = next(entry["unread"] for entry in rooms if entry["id"] == str(room.id))
 
         assert unread["total"] == 1

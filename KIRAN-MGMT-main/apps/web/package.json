@@ -68,7 +68,7 @@
     "react-fast-compare": "catalog:",
     "react-hook-form": "catalog:",
     "react-is": "catalog:",
-    "react-markdown": "catalog:",
+    "react-markdown": "^9.0.3",
     "react-masonry-component": "catalog:",
     "react-pdf-html": "catalog:",
     "react-popper": "catalog:",

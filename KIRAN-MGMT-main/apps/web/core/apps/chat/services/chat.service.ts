@@ -131,7 +131,10 @@ export class ChatService extends APIService {
 
   async listUserGroups(workspaceSlug: string): Promise<TWireUserGroup[]> {
     return this.get(`${this.root(workspaceSlug)}/groups/`)
-      .then((response) => response?.data)
+      .then((response) => {
+        const d = response?.data;
+        return Array.isArray(d) ? d : (d?.results ?? []);
+      })
       .catch((error) => {
         throw error?.response?.data;
       });
@@ -195,7 +198,10 @@ export class ChatService extends APIService {
 
   async listRooms(workspaceSlug: string): Promise<TWireRoom[]> {
     return this.get(`${this.root(workspaceSlug)}/rooms/`)
-      .then((response) => response?.data)
+      .then((response) => {
+        const d = response?.data;
+        return Array.isArray(d) ? d : (d?.results ?? []);
+      })
       .catch((error) => {
         throw error?.response?.data;
       });

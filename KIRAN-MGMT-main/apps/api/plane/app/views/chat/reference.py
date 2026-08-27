@@ -34,6 +34,8 @@ wrong at scale; the fix is a trigram index on `chat_messages.content`, which is
 a migration nobody should write before someone has seen this feature work.
 """
 
+import re
+
 # Django imports
 from django.db.models import Q
 from django.utils import timezone
@@ -110,6 +112,13 @@ class ChatReferenceViewSet(BaseViewSet):
             .order_by("-created_at", "-id")[:MAX_REFERENCES]
         )
 
+        needle_pattern = re.compile(rf"{re.escape(needle)}(?:[/?#\s,\.\)\]'\"!:]|$)", re.IGNORECASE)
+
+        matching_messages = [
+            message for message in messages
+            if needle_pattern.search(message.content)
+        ][:MAX_REFERENCES]
+
         return Response(
             {
                 "items": [
@@ -125,7 +134,7 @@ class ChatReferenceViewSet(BaseViewSet):
                         ),
                         "created_at": message.created_at,
                     }
-                    for message in messages
+                    for message in matching_messages
                 ]
             },
             status=status.HTTP_200_OK,
