@@ -21,6 +21,8 @@
  * type is an error rather than a hint.
  */
 
+export { MentionGroupsDialog } from "./MentionGroupsDialog";
+
 export { CommandPalette } from "./CommandPalette";
 export type { CommandPaletteProps } from "./CommandPalette";
 

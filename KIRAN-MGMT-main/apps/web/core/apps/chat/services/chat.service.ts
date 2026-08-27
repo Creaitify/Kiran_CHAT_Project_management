@@ -28,7 +28,15 @@
 
 import { API_BASE_URL } from "@plane/constants";
 import { APIService } from "@/services/api.service";
-import type { TWireMessage, TWirePage, TWireRoom, TWireRoomMember, TWireUpdates } from "./wire";
+import type {
+  TWireMessage,
+  TWirePage,
+  TWireRoom,
+  TWireRoomMember,
+  TWireUpdates,
+  TWireUserGroup,
+} from "./wire";
+import type { TChatOverview } from "./overview";
 
 export type TCreateRoomPayload = {
   type: "group" | "direct" | "groupdm";
@@ -55,6 +63,12 @@ export type TSendMessagePayload = {
   forwarded_from?: string | null;
 };
 
+export type TUserGroupPayload = {
+  handle: string;
+  name: string;
+  member_ids?: string[];
+};
+
 export class ChatService extends APIService {
   constructor(BASE_URL?: string) {
     super(BASE_URL || API_BASE_URL);
@@ -62,6 +76,89 @@ export class ChatService extends APIService {
 
   private root(workspaceSlug: string): string {
     return `/api/workspaces/${encodeURIComponent(workspaceSlug)}/chat`;
+  }
+
+  /* --------------------------------------------------------------- overview */
+
+  /**
+   * Chat, summarised for the shell.
+   *
+   * Deliberately not `listRooms`. That returns whole rooms -- members, last
+   * message, its reactions -- because the conversation list renders all of it.
+   * The rail badge wants a number and the palette wants titles, and polling the
+   * expensive one on every page in the product to get them would be the worst
+   * request in the shell.
+   */
+  async fetchOverview(workspaceSlug: string): Promise<TChatOverview> {
+    return this.get(`${this.root(workspaceSlug)}/overview/`)
+      .then((response) => response?.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  /* ----------------------------------------------------------- mention groups */
+
+  async listUserGroups(workspaceSlug: string): Promise<TWireUserGroup[]> {
+    return this.get(`${this.root(workspaceSlug)}/groups/`)
+      .then((response) => response?.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  /**
+   * `member_ids` is the whole membership, not a delta. A mention group is
+   * edited as one decision -- "who is on-call this week" -- and sending the set
+   * is what makes that decision atomic. Omitting the field on an update leaves
+   * the membership alone; sending `[]` empties it.
+   */
+  async createUserGroup(workspaceSlug: string, data: TUserGroupPayload): Promise<TWireUserGroup> {
+    return this.post(`${this.root(workspaceSlug)}/groups/`, data)
+      .then((response) => response?.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  async updateUserGroup(
+    workspaceSlug: string,
+    groupId: string,
+    data: Partial<TUserGroupPayload>
+  ): Promise<TWireUserGroup> {
+    return this.patch(`${this.root(workspaceSlug)}/groups/${groupId}/`, data)
+      .then((response) => response?.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  async deleteUserGroup(workspaceSlug: string, groupId: string): Promise<void> {
+    return this.delete(`${this.root(workspaceSlug)}/groups/${groupId}/`)
+      .then((response) => response?.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  /* ------------------------------------------------------------------ agent */
+
+  /**
+   * The AI endpoint, as a URL rather than a request.
+   *
+   * Every other method here goes through axios. This one cannot: the response is
+   * an SSE stream and axios in a browser has no way to read a body as it
+   * arrives -- `responseType: "stream"` is Node-only, and the XHR adapter
+   * resolves once, at the end. The caller uses `fetch`, which gives it a
+   * `ReadableStream`, and needs the absolute URL because `fetch` has no notion
+   * of the instance's `baseURL`.
+   *
+   * `credentials: "include"` is the caller's responsibility for the same reason:
+   * it is what `withCredentials` does for the axios instance, and without it the
+   * session cookie is not sent and the endpoint answers 401.
+   */
+  agentUrl(workspaceSlug: string): string {
+    return `${this.baseURL}${this.root(workspaceSlug)}/agent/`;
   }
 
   /* ------------------------------------------------------------------ rooms */
@@ -181,6 +278,21 @@ export class ChatService extends APIService {
     emoji: string
   ): Promise<TWireMessage> {
     return this.post(`${this.root(workspaceSlug)}/rooms/${roomId}/messages/${messageId}/reactions/`, { emoji })
+      .then((response) => response?.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  /**
+   * Release a queued message ahead of its send time.
+   *
+   * Not a PATCH clearing `scheduled_for`: the server keeps that column
+   * read-only, because the only legal edit to it is this one and a writable
+   * column would also allow rescheduling into the past.
+   */
+  async sendScheduledNow(workspaceSlug: string, roomId: string, messageId: string): Promise<TWireMessage> {
+    return this.post(`${this.root(workspaceSlug)}/rooms/${roomId}/messages/${messageId}/send-now/`)
       .then((response) => response?.data)
       .catch((error) => {
         throw error?.response?.data;

@@ -2,17 +2,23 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # See the LICENSE file for details.
 
+from .agent import ChatAgentEndpoint
+from .group import ChatUserGroupViewSet
 from .invite import ChatInviteJoinViewSet, ChatRoomInviteViewSet
 from .message import ChatMessageViewSet
+from .overview import ChatOverviewViewSet
 from .room import ChatRoomMemberViewSet, ChatRoomReadMarkerViewSet, ChatRoomViewSet
 from .updates import ChatUpdatesViewSet
 
 __all__ = [
+    "ChatAgentEndpoint",
     "ChatInviteJoinViewSet",
     "ChatMessageViewSet",
+    "ChatOverviewViewSet",
     "ChatRoomInviteViewSet",
     "ChatRoomMemberViewSet",
     "ChatRoomReadMarkerViewSet",
     "ChatRoomViewSet",
+    "ChatUserGroupViewSet",
     "ChatUpdatesViewSet",
 ]

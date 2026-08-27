@@ -31,6 +31,8 @@
 
 import type { EUserPermissionsLevel } from "@plane/constants";
 import type { EUserProjectRoles, EUserWorkspaceRoles } from "@plane/types";
+// components
+import type { TPowerKCommandConfig } from "@/components/power-k/core/types";
 
 export type TAppKey = string;
 
@@ -52,6 +54,44 @@ export type TAppVisibilityContext = {
     workspaceSlug?: string,
     projectId?: string
   ) => boolean;
+};
+
+/**
+ * What an app puts on its rail icon.
+ *
+ * Returning `undefined` draws nothing, which is different from returning
+ * `{count: 0}` -- "I do not have a number yet" and "the number is zero" both
+ * render as no badge, but only the first is honest while a request is in
+ * flight, and the difference matters if a caller ever wants to show a
+ * placeholder.
+ */
+export type TAppBadge = {
+  /** Zero renders nothing. Anything past 99 renders as "99+". */
+  count: number;
+  /**
+   * Raise the badge to the attention colour.
+   *
+   * Chat sets this for mentions: eleven unread messages is a number, one of
+   * them being addressed to you by name is a different thing, and a rail that
+   * cannot tell them apart trains people to ignore it.
+   */
+  emphasis?: boolean;
+  /** Accessible description, e.g. "3 unread messages, 1 mention". */
+  label?: string;
+};
+
+/**
+ * What a contribution hook is told about its own app.
+ *
+ * `isVisible` is the important one. Contribution hooks are called for *every*
+ * registered app on every render, visible or not -- see `contributions.ts` for
+ * why that is the only Rules-of-Hooks-safe shape -- so an app that fetches
+ * anything has to be told when not to bother.
+ */
+export type TAppContributionContext = {
+  workspaceSlug: string;
+  /** False when this app is gated away from the current user. Do no work. */
+  isVisible: boolean;
 };
 
 export type TAppManifest = {
@@ -102,4 +142,29 @@ export type TAppManifest = {
   keySequence?: string;
   /** Extra search terms for the palette. The label is always searchable. */
   keywords?: string[];
+  /**
+   * Live count for the rail icon.
+   *
+   * A hook rather than a value because a manifest is a static object and a
+   * badge is not: the number has to come from somewhere that can poll, cache
+   * and re-render. The shell calls it; the app owns where the number comes
+   * from, and owns keeping it cheap.
+   *
+   * Called on every render of the rail whether or not the app is visible, so
+   * check `ctx.isVisible` before doing anything expensive. Return `undefined`
+   * for "no badge".
+   */
+  useBadge?: (ctx: TAppContributionContext) => TAppBadge | undefined;
+  /**
+   * Palette entries beyond the "Go to <App>" one the registry generates for
+   * free.
+   *
+   * This is the seam for *contents*: chat contributes its conversations, so
+   * Power-K can jump straight into a room rather than only into the app. Same
+   * visibility caveat as `useBadge` -- the hook runs regardless, so gate the
+   * work on `ctx.isVisible`.
+   *
+   * Return a stable array; the shell memoises on identity.
+   */
+  usePowerKCommands?: (ctx: TAppContributionContext) => TPowerKCommandConfig[];
 };

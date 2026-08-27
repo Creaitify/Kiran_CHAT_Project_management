@@ -98,4 +98,6 @@ from .chat import (
     ChatMessageReaction,
     ChatRoomInvite,
     ChatSavedMessage,
+    ChatUserGroup,
+    ChatUserGroupMember,
 )

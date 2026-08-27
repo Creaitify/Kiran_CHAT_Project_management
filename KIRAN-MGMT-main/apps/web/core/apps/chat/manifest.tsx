@@ -6,6 +6,7 @@
 
 import { MessageSquareIcon } from "lucide-react";
 import type { TAppManifest } from "../types";
+import { useChatBadge, useChatPowerKCommands } from "./contributions";
 
 /**
  * Chat -- the first app ported in under the registry rather than built on it.
@@ -31,4 +32,10 @@ export const chatAppManifest: TAppManifest = {
   order: 200,
   keySequence: "ac",
   keywords: ["messages", "conversations", "dm", "rooms", "inbox"],
+  // Contributions to shared shell surfaces. Both are hooks the shell calls; see
+  // `apps/contributions.ts` for why they are called for every registered app
+  // rather than only the visible ones, and `./contributions.ts` for what chat
+  // does with the visibility flag it is handed.
+  useBadge: useChatBadge,
+  usePowerKCommands: useChatPowerKCommands,
 };

@@ -84,15 +84,17 @@ import { compareMessages, pageBefore, PAGE_SIZE } from "../lib/paginate";
 import { mentionsUser, parseMentions, resolveMentionTargets, toPlainText } from "../lib/mentions";
 import { derivePreviews } from "../lib/link-preview";
 import { inviteIsUsable } from "../lib/invite-rules";
+import { publishAppEvent } from "../../events";
 import { draftKey } from "../lib/draft-key";
-import { ChatService } from "../services/chat.service";
-import { toIso, wireToRoom } from "../services/wire";
+import { ChatService, type TUserGroupPayload } from "../services/chat.service";
+import { toIso, wireToRoom, wireToUserGroup } from "../services/wire";
 import {
   bootstrapChat,
   directoryFromWorkspaceMembers,
   mergeMessages,
   mergeReadState,
   mergeRooms,
+  mergeUserGroups,
   readLocalState,
   subscribeToChatUpdates,
   writeLocalState,
@@ -139,6 +141,11 @@ interface ChatContextValue {
   /* directory */
   users: User[];
   userGroups: UserGroup[];
+  /** Whether the signed-in user may create, edit or delete mention groups. */
+  canManageUserGroups: boolean;
+  createUserGroup: (payload: TUserGroupPayload) => Promise<void>;
+  updateUserGroup: (id: string, payload: Partial<TUserGroupPayload>) => Promise<void>;
+  deleteUserGroup: (id: string) => Promise<void>;
   currentUser: User;
   currentUserId: UserId;
   setCurrentUserId: (id: UserId) => void;
@@ -327,12 +334,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   );
 
   /**
-   * Mention groups (`@engineering`) have no server model yet, so the list is
-   * empty rather than fabricated. `parseMentions` and the composer's
-   * autocomplete both handle an empty group list correctly -- they simply offer
-   * no group suggestions -- which is the honest behaviour until groups exist.
+   * Mention groups (`@engineering`). Workspace-scoped, loaded at boot and kept
+   * current by the poll, and empty until a workspace admin creates one -- which
+   * every consumer already handles, because that was the only state they had
+   * before the server model existed.
    */
-  const [userGroups] = useState<UserGroup[]>([]);
+  const [userGroups, setUserGroups] = useState<UserGroup[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [messages, setMessages] = useState<SharedMessage[]>([]);
   const [aiMessages, setAiMessages] = useState<PrivateAIMessage[]>([]);
@@ -396,6 +403,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         setRooms(boot.rooms);
         setMessages(boot.messages);
         setReadState(boot.readState);
+        setUserGroups(boot.userGroups);
         historyRef.current = { cursors: boot.cursorByRoom, more: boot.hasMoreByRoom };
 
         // Prefer the room the user was last in, but only if they are still a
@@ -430,6 +438,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       setMessages((current) => mergeMessages(current, delta.messages));
       setRooms((current) => mergeRooms(current, delta.rooms));
       setReadState((current) => mergeReadState(current, delta.readState));
+      setUserGroups((current) => mergeUserGroups(current, delta.userGroups));
     });
 
     return () => {
@@ -653,6 +662,16 @@ export function ChatProvider({ children }: { children: ReactNode }) {
             : m,
         ),
       );
+      // Announced on the shared channel now that the server has accepted it --
+      // an optimistic local row is not an event, because it may still fail. This
+      // is the seam approvals and escalations will hang off; today the rail
+      // badge is its only subscriber.
+      publishAppEvent("chat:message.created", {
+        roomId: message.roomId,
+        messageId: ack.serverId,
+        senderId: message.senderId,
+      });
+
       // The server has it; the tick turns solid once the write is acknowledged
       // rather than after a cosmetic delay. Matched on clientId because the row
       // just adopted a new id above.
@@ -1046,18 +1065,90 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   );
 
   /* ---------------------------------------------------------------------- */
+  /* Mention groups                                                         */
+  /* ---------------------------------------------------------------------- */
+
+  /**
+   * Workspace admin, not room admin.
+   *
+   * A handle is global -- `@engineering` means the same team in every room --
+   * so the person who decides what it means is the person who decides things
+   * for the workspace. `User.role` is derived from the workspace role in
+   * `directoryFromWorkspaceMembers`, so this is the same fact the server
+   * checks; it gates the UI, and the endpoint gates the write.
+   */
+  const canManageUserGroups = useMemo(
+    () => userById(currentUserId).role === "Admin",
+    [userById, currentUserId],
+  );
+
+  /**
+   * Server first, unlike almost everything else here.
+   *
+   * The optimistic pattern the rest of the store uses needs a locally-knowable
+   * outcome. These three do not have one: the server assigns the id, lower-cases
+   * the handle, rejects the reserved ones, enforces uniqueness across the
+   * workspace, and drops ids that are no longer members. Guessing any of that
+   * and correcting it afterwards would show the editor a group that then
+   * changed under them.
+   *
+   * Errors are re-thrown rather than toasted, because the caller is a form and
+   * a rejected handle belongs next to the handle input.
+   */
+  const createUserGroup = useCallback(
+    async (payload: TUserGroupPayload) => {
+      const created = wireToUserGroup(await service.createUserGroup(workspaceSlug, payload));
+      setUserGroups((current) => mergeUserGroups(current, [created]));
+      toast.success(`@${created.handle} created`);
+    },
+    [service, workspaceSlug],
+  );
+
+  const updateUserGroup = useCallback(
+    async (id: string, payload: Partial<TUserGroupPayload>) => {
+      const updated = wireToUserGroup(await service.updateUserGroup(workspaceSlug, id, payload));
+      setUserGroups((current) => mergeUserGroups(current, [updated]));
+      toast.success(`@${updated.handle} updated`);
+    },
+    [service, workspaceSlug],
+  );
+
+  const deleteUserGroup = useCallback(
+    async (id: string) => {
+      const before = userGroups.find((group) => group.id === id);
+      await service.deleteUserGroup(workspaceSlug, id);
+      // Dropped locally because the delta cannot report a deletion -- a
+      // soft-deleted group is filtered out of every query rather than sent as
+      // gone. See `mergeUserGroups`.
+      setUserGroups((current) => current.filter((group) => group.id !== id));
+      toast.success(before ? `@${before.handle} deleted` : "Group deleted");
+    },
+    [service, workspaceSlug, userGroups],
+  );
+
+  /* ---------------------------------------------------------------------- */
   /* Scheduled messages                                                     */
   /* ---------------------------------------------------------------------- */
 
+  /**
+   * Queue a message on the server.
+   *
+   * `dispatchSend` is the same path an ordinary send takes -- the transport
+   * already forwards `scheduled_for`, and the server keeps the row invisible to
+   * everyone but its author until the clock passes it. Without this call the
+   * message existed only in this tab: it did not survive a refresh, and it did
+   * not send unless the tab was still open at the appointed time.
+   */
   const scheduleMessage = useCallback(
     (roomId: RoomId, content: string, sendAt: number) => {
       const text = content.trim();
       if (!text) return;
       const message = buildMessage(roomId, text, { scheduledFor: sendAt, delivery: "sending" });
       setMessages((current) => [...current, message]);
+      void dispatchSend(message);
       toast.success("Message scheduled");
     },
-    [buildMessage],
+    [buildMessage, dispatchSend],
   );
 
   const scheduledMessages = useCallback(
@@ -1073,46 +1164,58 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     [messages, currentUserId],
   );
 
-  const cancelScheduled = useCallback((id: MessageId) => {
-    setMessages((current) => current.filter((message) => message.id !== id));
-    toast.success("Scheduled message cancelled");
-  }, []);
-
-  const releaseScheduled = useCallback(
+  /**
+   * Cancelling deletes rather than tombstones, and the server agrees: nobody
+   * has seen this message, so there is nothing for a "message deleted"
+   * placeholder to explain and nothing pointing at the row.
+   */
+  const cancelScheduled = useCallback(
     (id: MessageId) => {
-      setMessages((current) => {
-        const target = current.find((message) => message.id === id);
-        if (!target) return current;
-        const released: SharedMessage = {
-          ...target,
-          scheduledFor: undefined,
-          timestamp: Date.now(),
-          delivery: "sending",
-        };
-        void dispatchSend(released);
-        return current.map((message) => (message.id === id ? released : message));
-      });
+      const before = messages.find((message) => message.id === id);
+      if (!before) return;
+      setMessages((current) => current.filter((message) => message.id !== id));
+      toast.success("Scheduled message cancelled");
+      void withServer(
+        () => service.deleteMessage(workspaceSlug, before.roomId, id),
+        () => setMessages((current) => [...current, before]),
+        "cancel the scheduled message",
+      );
     },
-    [dispatchSend],
+    [messages, service, workspaceSlug, withServer],
   );
 
   const sendScheduledNow = useCallback(
     (id: MessageId) => {
-      releaseScheduled(id);
+      const before = messages.find((message) => message.id === id);
+      if (!before) return;
+
+      // Optimistic release: drop the queue flag and take the slot at the bottom
+      // of the room. The server does the same two things, and the next poll
+      // replaces this row with its answer either way.
+      setMessages((current) =>
+        current.map((message) =>
+          message.id === id
+            ? { ...message, scheduledFor: undefined, timestamp: Date.now(), delivery: "delivered" }
+            : message,
+        ),
+      );
       toast.success("Sent");
+
+      void withServer(
+        () => service.sendScheduledNow(workspaceSlug, before.roomId, id),
+        () => setMessages((current) => current.map((message) => (message.id === id ? before : message))),
+        "send the scheduled message",
+      );
     },
-    [releaseScheduled],
+    [messages, service, workspaceSlug, withServer],
   );
 
-  // Due-message ticker. A server would run this as a queue worker.
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const now = Date.now();
-      const due = messages.filter((message) => message.scheduledFor && message.scheduledFor <= now);
-      for (const message of due) releaseScheduled(message.id);
-    }, 5_000);
-    return () => clearInterval(interval);
-  }, [messages, releaseScheduled]);
+  // No due-message ticker. Release is
+  // `plane.bgtasks.chat_scheduled_task.release_scheduled_chat_messages`, on a
+  // one-minute beat, and the released row reaches every client -- the author's
+  // included -- through the ordinary poll. A client-side timer could only
+  // release messages for whoever happened to have a tab open, which is the bug
+  // this replaced.
 
   /* ---------------------------------------------------------------------- */
   /* Threads                                                                */
@@ -1215,6 +1318,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     (id: RoomId) => {
       setActiveRoomId(id);
       markRoomRead(id);
+      // The shell's rail badge listens for this and refetches, so the count
+      // clears as you read rather than at the next thirty-second tick. Chat does
+      // not know the rail exists; it announces what happened and stops caring.
+      publishAppEvent("chat:room.opened", { roomId: id });
     },
     [markRoomRead],
   );
@@ -1889,18 +1996,19 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         .join("\n");
 
       try {
-        // AI is explicitly out of scope for this stage. The whole assistant
-        // surface -- the @agent composer target, the per-room conversation, the
-        // token budget, the share-to-chat action -- is ported and wired, and
-        // this one fetch is the only thing standing between it and working.
-        // It is left pointing at the route it will use so that turning AI on is
-        // a backend change, not a hunt through the client.
+        // `fetch`, not the service's axios instance, and this is the only place
+        // in chat that reaches past it. The response is an SSE stream and axios
+        // in a browser resolves once the body is complete, which would turn a
+        // streamed answer back into a blocking one. `credentials: "include"` is
+        // what `withCredentials` does for the axios instance -- without it the
+        // session cookie never leaves and the endpoint answers 401.
         //
-        // Until that route exists the request 404s, the catch below turns it
-        // into a visible "AI request failed" bubble the user can dismiss, and
-        // nothing else in chat is affected.
-        const response = await fetch("/api/agent", {
+        // If AI is not configured on the instance the endpoint says so in a 400
+        // and the catch below renders it as a dismissible bubble in the
+        // conversation. Nothing else in chat is affected either way.
+        const response = await fetch(service.agentUrl(workspaceSlug), {
           method: "POST",
+          credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             prompt,
@@ -1979,7 +2087,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         );
       }
     },
-    [aiMessages, messages, userById, plainText, chargeBudget],
+    [aiMessages, messages, userById, plainText, chargeBudget, service, workspaceSlug],
   );
 
   const askAgent = useCallback(
@@ -2145,6 +2253,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const value: ChatContextValue = {
     users,
     userGroups,
+    canManageUserGroups,
+    createUserGroup,
+    updateUserGroup,
+    deleteUserGroup,
     currentUser: userById(currentUserId),
     currentUserId,
     setCurrentUserId,

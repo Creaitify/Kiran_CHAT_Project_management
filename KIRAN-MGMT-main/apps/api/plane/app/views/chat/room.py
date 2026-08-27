@@ -17,7 +17,14 @@ from rest_framework.response import Response
 # Module imports
 from plane.app.views.base import BaseViewSet
 from plane.app.permissions import ROLE, allow_permission
-from plane.db.models import ChatMessage, ChatRoom, ChatRoomMember, Workspace, WorkspaceMember
+from plane.db.models import (
+    ChatMessage,
+    ChatRoom,
+    ChatRoomMember,
+    ChatUserGroupMember,
+    Workspace,
+    WorkspaceMember,
+)
 from plane.app.serializers import ChatRoomMemberSerializer, ChatRoomSerializer
 
 # A message that mentions @channel or @here mentions everyone in the room, so it
@@ -99,6 +106,47 @@ def _promote_successor(room_id):
         successor.save(update_fields=["role", "updated_at", "updated_by"])
 
 
+def mentions_me_q(user_id, workspace_ids):
+    """Does a message mention this person?
+
+    Three ways, and the third is the one that is easy to leave out:
+
+    - by name, `mentions.users` carrying their id;
+    - by broadcast, `@channel` or `@here`, which mention everyone in the room;
+    - by mention group, `@engineering`, which mentions everyone in that group.
+
+    `mentions.groups` stores handles rather than ids -- it is denormalised at
+    write time from what was actually typed -- so the caller's handles are
+    resolved once and ORed in. One extra query, and usually zero handles.
+
+    A `contains` per handle rather than one lookup because `mentions` is JSONB
+    and has no array-overlap operator; a person is in a handful of groups, so the
+    chain stays short.
+
+    Shared with the rail badge (`ChatOverviewViewSet`) rather than duplicated.
+    The badge and the room list disagreeing about what counts as a mention would
+    be a bug nobody notices until they are staring at a red dot with nothing
+    behind it.
+    """
+    predicate = Q(mentions__users__contains=[str(user_id)]) | Q(mentions__broadcast__in=BROADCAST_HANDLES)
+
+    # Scoped to the workspace. A handle is unique per workspace but not across
+    # them, so being in `@engineering` in one workspace must not light up
+    # `@engineering` in another. `group__deleted_at` is checked by hand because a
+    # join does not run the related model's manager -- the cascade that
+    # soft-deletes a deleted group's memberships is a Celery task, and this has
+    # to be right before it lands.
+    handles = ChatUserGroupMember.objects.filter(
+        member_id=user_id,
+        workspace_id__in=workspace_ids,
+        group__deleted_at__isnull=True,
+    ).values_list("group__handle", flat=True)
+    for handle in handles:
+        predicate |= Q(mentions__groups__contains=[handle])
+
+    return predicate
+
+
 def room_list_context(rooms, user_id):
     """
     Bulk-resolve `last_message` and `unread` for a page of rooms.
@@ -156,7 +204,7 @@ def room_list_context(rooms, user_id):
         .exclude(sender_id=user_id)
         .filter(cutoff)
     )
-    mentions_me = Q(mentions__users__contains=[str(user_id)]) | Q(mentions__broadcast__in=BROADCAST_HANDLES)
+    mentions_me = mentions_me_q(user_id, {room.workspace_id for room in rooms})
 
     unread = {}
     # order_by() clears ChatMessage.Meta.ordering, which would otherwise

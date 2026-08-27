@@ -35,10 +35,12 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/
 
 export function ConversationSidebar({
   onCreateGroup,
+  onManageMentionGroups,
   onClose,
   onSelect,
 }: {
   onCreateGroup: () => void;
+  onManageMentionGroups: () => void;
   onClose?: () => void;
   onSelect?: () => void;
 }) {
@@ -290,6 +292,13 @@ export function ConversationSidebar({
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={onCreateGroup}>
                 <Users className="mr-2 h-4 w-4" /> New group…
+              </DropdownMenuItem>
+              {/* A mention group is not a conversation, so it does not belong in
+                  the room list -- but this menu is where "make a thing that
+                  stands for several people" already lives, and it is the only
+                  chat surface an admin would think to look in. */}
+              <DropdownMenuItem onClick={onManageMentionGroups}>
+                <AtSign className="mr-2 h-4 w-4" /> Mention groups…
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

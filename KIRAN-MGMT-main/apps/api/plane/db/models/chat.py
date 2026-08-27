@@ -217,6 +217,16 @@ class ChatMessage(BaseModel):
             # by id so the cursor is stable across inserts at the same instant.
             models.Index(fields=["room", "-created_at", "-id"]),
             models.Index(fields=["thread_root"]),
+            # The release sweep (`plane.bgtasks.chat_scheduled_task`) runs every
+            # minute and asks for rows with a send time in the past. Partial,
+            # because a queued message is a rounding error against the table:
+            # indexing every row to find the handful that are pending would cost
+            # more on every write than it saves on the sweep.
+            models.Index(
+                fields=["scheduled_for"],
+                condition=models.Q(scheduled_for__isnull=False),
+                name="chat_msg_pending_release_idx",
+            ),
         ]
 
     def __str__(self):
@@ -313,3 +323,80 @@ class ChatSavedMessage(BaseModel):
 
     def __str__(self):
         return f"{self.kind}:{self.message_id}"
+
+
+class ChatUserGroup(BaseModel):
+    """
+    A named, mentionable set of people -- `@engineering`, `@on-call`.
+
+    Workspace-scoped rather than room-scoped, and deliberately so: the point of a
+    mention group is that the same handle means the same team wherever it is
+    typed. A room-scoped group would be a second, weaker way of saying "everyone
+    here", which `@channel` already says.
+
+    Membership is not a permission. Being in `@engineering` means messages
+    addressed to that handle notify you; it grants no access to any room. The
+    notification fan-out intersects the group with the room's own members, so
+    mentioning a group in a room half of them are not in reaches only the half
+    that are -- see `resolveMentionTargets` in `chat/lib/mentions.ts`.
+    """
+
+    workspace = models.ForeignKey("db.Workspace", on_delete=models.CASCADE, related_name="chat_user_groups")
+
+    # What is typed after the `@`, and what is stored in the message body as
+    # `<!handle>`. Lower-cased and validated at the serializer, because the
+    # mention tokeniser only recognises `[a-zA-Z0-9_-]` and a handle it cannot
+    # tokenise is a group that can never be mentioned.
+    handle = models.CharField(max_length=64)
+    # Human-readable, and the only other thing the composer shows: the mention
+    # autocomplete renders "@handle" over "Name - N people". A separate
+    # description field would have nowhere to appear.
+    name = models.CharField(max_length=255)
+
+    class Meta:
+        verbose_name = "Chat User Group"
+        verbose_name_plural = "Chat User Groups"
+        db_table = "chat_user_groups"
+        ordering = ("handle",)
+        constraints = [
+            # One handle, one meaning, per workspace. Two groups answering to
+            # `@engineering` would make every mention of it ambiguous, and the
+            # client resolves a handle with `find`, which would silently pick
+            # whichever came back first.
+            models.UniqueConstraint(
+                fields=["workspace", "handle"],
+                condition=models.Q(deleted_at__isnull=True),
+                name="chat_user_group_unique_workspace_handle_when_not_deleted",
+            )
+        ]
+        indexes = [models.Index(fields=["workspace", "handle"], name="chat_user_group_ws_handle_idx")]
+
+    def __str__(self):
+        return f"@{self.handle}"
+
+
+class ChatUserGroupMember(BaseModel):
+    """One person's membership of one mention group."""
+
+    workspace = models.ForeignKey("db.Workspace", on_delete=models.CASCADE, related_name="chat_user_group_members")
+    group = models.ForeignKey(ChatUserGroup, on_delete=models.CASCADE, related_name="members")
+    member = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="chat_user_group_memberships"
+    )
+
+    class Meta:
+        verbose_name = "Chat User Group Member"
+        verbose_name_plural = "Chat User Group Members"
+        db_table = "chat_user_group_members"
+        ordering = ("created_at",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=["group", "member"],
+                condition=models.Q(deleted_at__isnull=True),
+                name="chat_user_group_member_unique_group_member_when_not_deleted",
+            )
+        ]
+        indexes = [models.Index(fields=["member", "group"], name="chat_user_group_mem_grp_idx")]
+
+    def __str__(self):
+        return f"{self.member_id} in {self.group_id}"

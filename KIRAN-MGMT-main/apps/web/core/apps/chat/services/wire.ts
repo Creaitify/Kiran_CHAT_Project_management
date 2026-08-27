@@ -35,6 +35,7 @@ import type {
   Room,
   RoomType,
   SharedMessage,
+  UserGroup,
 } from "../lib/chat-types";
 
 /* -------------------------------------------------------------------------- */
@@ -113,10 +114,24 @@ export type TWirePage<T> = {
   has_more: boolean;
 };
 
+export type TWireUserGroup = {
+  id: string;
+  handle: string;
+  name: string;
+  member_ids: string[];
+  created_at: string;
+  updated_at: string;
+};
+
 export type TWireUpdates = {
   messages: TWireMessage[];
   rooms: TWireRoom[];
   members: TWireRoomMember[];
+  /**
+   * Mention groups. Workspace-scoped rather than room-scoped, so unlike every
+   * other collection here this one arrives even for someone in no rooms at all.
+   */
+  groups: TWireUserGroup[];
   /** Echo this back as `since` on the next poll. Never use the client clock. */
   server_time: string;
   /** True when the delta hit its cap; poll again immediately rather than waiting. */
@@ -154,6 +169,21 @@ export function wireToInvite(wire: TWireInvite | null): Invite | null {
     expiresAt: wire.expires_at ? toEpoch(wire.expires_at) : null,
     maxUses: wire.max_uses,
     uses: wire.uses,
+  };
+}
+
+/**
+ * A group arrives whole -- handle, name and the entire membership on one row --
+ * so a merge is a replace and never a patch. That is deliberate on the server
+ * side too: `ChatUserGroupViewSet` touches the group row whenever its membership
+ * moves, precisely so the client never has to reconcile two collections.
+ */
+export function wireToUserGroup(wire: TWireUserGroup): UserGroup {
+  return {
+    id: wire.id,
+    handle: wire.handle,
+    name: wire.name,
+    memberIds: wire.member_ids ?? [],
   };
 }
 

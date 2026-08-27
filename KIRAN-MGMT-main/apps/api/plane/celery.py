@@ -47,6 +47,14 @@ app.conf.beat_schedule = {
         "task": "plane.bgtasks.email_notification_task.stack_email_notification",
         "schedule": crontab(minute="*/5"),  # Every 5 minutes
     },
+    "release-scheduled-chat-messages": {
+        "task": "plane.bgtasks.chat_scheduled_task.release_scheduled_chat_messages",
+        # Every minute. The message picker is minute-granular, so this is as
+        # precise as the promise the UI makes; anything finer would be a scan
+        # per fraction of a minute for a table that is usually empty of queued
+        # rows.
+        "schedule": crontab(minute="*"),
+    },
     "push-instance-metrics": {
         "task": "plane.license.bgtasks.telemetry_metrics.push_instance_metrics",
         "schedule": schedule(run_every=timedelta(minutes=METRICS_PUSH_INTERVAL_MINUTES)),

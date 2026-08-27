@@ -28,12 +28,57 @@ An app declares one object, `TAppManifest` (`core/apps/types.ts`):
 | `isAvailable` | no | Role gate. Omitted means "anyone in the workspace". |
 | `keySequence` | no | Command palette shortcut. Use the `a*` namespace. |
 | `keywords` | no | Extra palette search terms. |
+| `useBadge` | no | Live count on your rail icon. See below. |
+| `usePowerKCommands` | no | Palette entries for your app's *contents*. See below. |
 
 Three surfaces read it and need no edit when you add an app:
 
 - **The app rail** (`core/components/navigation/app-rail-hoc.tsx`)
 - **The router** (`app/routes/extended.ts` → `core/apps/routes.ts`)
 - **The command palette** (`core/apps/power-k-commands.ts`)
+
+### Contributing to shared surfaces
+
+The last two fields are hooks, not values — a badge count has to poll and
+re-render, and a static manifest object cannot. The shell calls them; you never
+reach into the shell.
+
+```ts
+// core/apps/directory/contributions.ts
+export function useDirectoryBadge(ctx: TAppContributionContext): TAppBadge | undefined {
+  const pending = usePendingApprovals(ctx.workspaceSlug, ctx.isVisible);
+  if (!pending) return undefined;                       // no badge yet ≠ zero
+  return { count: pending.length, emphasis: false, label: `${pending.length} pending` };
+}
+```
+
+```ts
+// core/apps/directory/manifest.tsx
+useBadge: useDirectoryBadge,
+usePowerKCommands: useDirectoryPowerKCommands,
+```
+
+**Three rules, and the first one will bite you if you skip it.**
+
+1. **Your hooks run even when your app is hidden.** They are called once per
+   *registered* app, not per visible app — `core/apps/contributions.ts` iterates
+   the module-level registry because that is the only array whose length is
+   guaranteed stable across renders, and a variable hook count breaks React's
+   hook order. So gate every fetch on `ctx.isVisible`; the shell throws the
+   result away regardless.
+2. **Return `undefined` for "no badge yet", not `{count: 0}`.** Both draw
+   nothing, but only the first is true while a request is in flight.
+3. **Your data cannot come from your app's own provider.** The rail and the
+   palette are mounted outside it. Chat's badge is driven by a small dedicated
+   endpoint and a module-scope cache
+   (`core/apps/chat/services/overview.ts`) — one slow poll, shared by both
+   surfaces — precisely because `ChatProvider` only exists while chat is open,
+   which is when a badge about chat stops mattering.
+
+Palette commands are ordinary `TPowerKCommandConfig` objects. One trap: do **not**
+route them through `handlePowerKNavigate` if your URL carries a query string. It
+normalises via `joinUrlPath`, which returns `new URL(...).pathname` — the query
+is dropped silently. Call `ctx.router.push()` directly instead.
 
 ### What the shell gives you
 
@@ -57,6 +102,16 @@ The channel is in-memory, synchronous, per-tab, and unbuffered — a subscriber
 that mounts after an event fired has missed it. Add your event names to
 `TAppEventMap`; a shared vocabulary is the whole point, and two apps inventing
 `message.sent` separately are not talking to each other.
+
+A worked example, because "an event channel exists" is not the same as anyone
+using it: chat publishes `chat:message.created` once the **server** has accepted
+a send (an optimistic local row is not an event — it may still fail) and
+`chat:room.opened` when you open a conversation. The rail badge subscribes to
+both and refetches. Neither side knows the other: chat has never heard of the
+rail, and the rail has no idea what a room is. Both know the event name.
+
+That is also why the badge can stay on a thirty-second poll and still clear the
+instant you read a room.
 
 ---
 

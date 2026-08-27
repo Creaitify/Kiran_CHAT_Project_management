@@ -24,6 +24,10 @@ Two conventions follow from that goal:
    PATCH may change.
 """
 
+# Python imports
+import re
+from datetime import timedelta
+
 # Django imports
 from django.utils import timezone
 
@@ -31,9 +35,18 @@ from django.utils import timezone
 from rest_framework import serializers
 
 # Module imports
-from plane.db.models import ChatMessage, ChatRoom, ChatRoomInvite, ChatRoomMember
+from plane.db.models import ChatMessage, ChatRoom, ChatRoomInvite, ChatRoomMember, ChatUserGroup
 
 from .base import BaseSerializer
+
+# Handles a group may not claim.
+#
+# `channel` and `here` mirror BROADCAST_HANDLES in `chat/lib/mentions.ts`:
+# `parseMentions` checks `isBroadcast` before it looks at the group list, so a
+# group answering to one of them would be written into messages and then never
+# resolve to anybody. `agent` is the composer's AI target -- a group by that
+# name would put two identically-labelled `@agent` rows in the autocomplete.
+RESERVED_HANDLES = frozenset({"channel", "here", "agent"})
 
 
 class ChatRoomLiteSerializer(BaseSerializer):
@@ -239,6 +252,19 @@ class ChatMessageCreateSerializer(BaseSerializer):
             raise serializers.ValidationError("client_id is required.")
         return value
 
+    def validate_scheduled_for(self, value):
+        """A send time in the past is a bug, not an instruction.
+
+        The release sweep publishes anything already due on its next pass, so
+        accepting a past timestamp would post the message immediately -- into a
+        position in the transcript above messages people have already read.
+        A minute of slack absorbs clock skew between the client and the server;
+        anything beyond that is the client getting it wrong.
+        """
+        if value and value < timezone.now() - timedelta(minutes=1):
+            raise serializers.ValidationError("A message cannot be scheduled for the past.")
+        return value
+
     def validate(self, attrs):
         if not any(
             [
@@ -345,3 +371,59 @@ class ChatRoomSerializer(BaseSerializer):
 
     def get_unread(self, obj):
         return self.context.get("unread", {}).get(obj.id)
+
+
+class ChatUserGroupSerializer(BaseSerializer):
+    """A mention group and the ids in it.
+
+    `member_ids` is the whole membership, written as a set rather than through
+    per-member endpoints. A mention group is small and is edited as one thing --
+    "who is on-call this week" is one decision, not five add-and-remove calls --
+    and doing it in one request is also what makes it atomic. `ChatUserGroupMember`
+    stays a table because the alternative is an array column that cannot answer
+    "which groups is this person in" without a scan.
+    """
+
+    # Write-only, and `to_representation` puts it back. A declared field of this
+    # name would otherwise have DRF look for `instance.member_ids` on the way
+    # out, which does not exist -- membership is a related table, and reading it
+    # off the prefetch is the whole point.
+    member_ids = serializers.ListField(child=serializers.UUIDField(), required=False, write_only=True)
+
+    class Meta:
+        model = ChatUserGroup
+        fields = ["id", "handle", "name", "member_ids", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+    def validate_handle(self, value):
+        """The handle has to survive the round trip through a message body.
+
+        Mentions are stored as `<!handle>` and read back with
+        `/<!([a-zA-Z0-9_-]+)>/` (`USER_TOKEN`/`SPECIAL_TOKEN` in
+        `chat/lib/mentions.ts`). A handle with a character outside that class
+        would be written into a message and then not parse out of it: the group
+        would look mentionable and silently notify nobody.
+        """
+        value = (value or "").strip().lower()
+        if not value:
+            raise serializers.ValidationError("handle is required.")
+        if not re.fullmatch(r"[a-z0-9_-]+", value):
+            raise serializers.ValidationError(
+                "A handle may only contain letters, numbers, hyphens and underscores."
+            )
+        if value in RESERVED_HANDLES:
+            raise serializers.ValidationError(f"@{value} is reserved.")
+        return value
+
+    def validate_name(self, value):
+        value = (value or "").strip()
+        if not value:
+            raise serializers.ValidationError("name is required.")
+        return value
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        # `members` is prefetched by the view. Reading it off the instance rather
+        # than querying keeps a list of N groups at one query instead of N.
+        data["member_ids"] = [str(membership.member_id) for membership in instance.members.all()]
+        return data

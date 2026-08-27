@@ -37,10 +37,19 @@
  * devices, and they now have a table.
  */
 
-import type { Draft, ReadState, Room, RoomId, SharedMessage, User, UserId } from "../lib/chat-types";
+import type {
+  Draft,
+  ReadState,
+  Room,
+  RoomId,
+  SharedMessage,
+  User,
+  UserGroup,
+  UserId,
+} from "../lib/chat-types";
 import type { ChatService } from "../services/chat.service";
 import type { TWireRoom } from "../services/wire";
-import { toEpoch, wireToMessage, wireToRoom } from "../services/wire";
+import { toEpoch, wireToMessage, wireToRoom, wireToUserGroup } from "../services/wire";
 
 /** How many messages of history to pull per room at boot. */
 const INITIAL_PAGE = 40;
@@ -71,6 +80,7 @@ export type TChatBootstrap = {
   rooms: Room[];
   messages: SharedMessage[];
   readState: ReadState;
+  userGroups: UserGroup[];
   /** Rooms whose history has more pages behind the first one. */
   hasMoreByRoom: Record<RoomId, boolean>;
   /** Oldest-message cursor per room, for scrollback. */
@@ -147,6 +157,14 @@ export async function bootstrapChat(service: ChatService, workspaceSlug: string)
   const wireRooms = await service.listRooms(workspaceSlug);
   const rooms = wireRooms.map(wireToRoom);
 
+  // Alongside the room reads, not before them. Mention groups are cosmetic
+  // until someone types `@` -- a workspace with none, or an endpoint that
+  // 500s, must cost the composer its group suggestions and nothing else.
+  const userGroups = await service
+    .listUserGroups(workspaceSlug)
+    .then((wire) => wire.map(wireToUserGroup))
+    .catch(() => []);
+
   const pages = await Promise.all(
     wireRooms.map(async (room) => {
       try {
@@ -168,7 +186,14 @@ export async function bootstrapChat(service: ChatService, workspaceSlug: string)
     cursorByRoom[roomId] = page.next_cursor;
   }
 
-  return { rooms, messages, readState: readStateFrom(wireRooms), hasMoreByRoom, cursorByRoom };
+  return {
+    rooms,
+    messages,
+    readState: readStateFrom(wireRooms),
+    userGroups,
+    hasMoreByRoom,
+    cursorByRoom,
+  };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -179,6 +204,7 @@ export type TChatDelta = {
   messages: SharedMessage[];
   rooms: Room[];
   readState: ReadState;
+  userGroups: UserGroup[];
   watermark: string;
 };
 
@@ -215,11 +241,17 @@ export function subscribeToChatUpdates(
 
       watermark = update.server_time;
 
-      if (update.messages.length || update.rooms.length) {
+      // `groups` is absent from a server that predates mention groups, so it is
+      // read defensively rather than assumed -- an older API answering this poll
+      // must not make the whole delta throw.
+      const groups = update.groups ?? [];
+
+      if (update.messages.length || update.rooms.length || groups.length) {
         onDelta({
           messages: update.messages.map(wireToMessage),
           rooms: update.rooms.map(wireToRoom),
           readState: readStateFrom(update.rooms),
+          userGroups: groups.map(wireToUserGroup),
           watermark,
         });
       }
@@ -305,6 +337,35 @@ export function mergeRooms(current: Room[], incoming: Room[]): Room[] {
   }
 
   return changed ? next : current;
+}
+
+/**
+ * Same idea for mention groups, with one asymmetry worth knowing about.
+ *
+ * A group arrives whole -- the server touches the group row whenever its
+ * membership moves -- so replacing by id is always correct and a partial merge
+ * is never needed. What the delta cannot carry is a *deletion*: a deleted group
+ * is soft-deleted, and soft-deleted rows are filtered out of every query rather
+ * than reported as gone. The admin who deleted it drops it locally; everyone
+ * else keeps offering the handle until their next reload, at which point the
+ * boot fetch is authoritative.
+ *
+ * That is a tolerable failure mode and an intentional one: a stale handle
+ * resolves to a group that is no longer there, `resolveMentionTargets` finds
+ * nothing to notify, and `MarkdownContent` renders it as plain text. Nobody is
+ * mis-notified; a mention just quietly does nothing.
+ */
+export function mergeUserGroups(current: UserGroup[], incoming: UserGroup[]): UserGroup[] {
+  if (incoming.length === 0) return current;
+
+  const next = [...current];
+  for (const group of incoming) {
+    const index = next.findIndex((existing) => existing.id === group.id);
+    if (index >= 0) next[index] = group;
+    else next.push(group);
+  }
+
+  return next;
 }
 
 /**

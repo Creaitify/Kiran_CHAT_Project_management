@@ -32,6 +32,7 @@ import { MessageThread } from "./components/MessageThread";
 import { Composer } from "./components/Composer";
 import { ContextPanel } from "./components/ContextPanel";
 import { CreateGroupDialog } from "./components/CreateGroupDialog";
+import { MentionGroupsDialog } from "./components/MentionGroupsDialog";
 import { ThreadPanel } from "./components/ThreadPanel";
 import { CommandPalette } from "./components/CommandPalette";
 import { ForwardDialog } from "./components/ForwardDialog";
@@ -76,6 +77,7 @@ export function ChatWorkspacePage() {
   const msgParam = searchParams.get("msg");
 
   const [groupOpen, setGroupOpen] = useState(false);
+  const [mentionGroupsOpen, setMentionGroupsOpen] = useState(false);
   const [preselected, setPreselected] = useState<UserId[]>([]);
   const [replyTo, setReplyTo] = useState<SharedMessage | null>(null);
   const [threadRootId, setThreadRootId] = useState<string | null>(null);
@@ -336,6 +338,7 @@ export function ChatWorkspacePage() {
         >
           <ConversationSidebar
             onCreateGroup={() => openCreateGroup([])}
+            onManageMentionGroups={() => setMentionGroupsOpen(true)}
             onClose={() => setSidebarOpen(false)}
           />
         </div>
@@ -346,6 +349,10 @@ export function ChatWorkspacePage() {
                 onCreateGroup={() => {
                   setMobileNav(false);
                   openCreateGroup([]);
+                }}
+                onManageMentionGroups={() => {
+                  setMobileNav(false);
+                  setMentionGroupsOpen(true);
                 }}
                 onSelect={() => setMobileNav(false)}
               />
@@ -633,6 +640,7 @@ export function ChatWorkspacePage() {
       </div>
 
       <CreateGroupDialog open={groupOpen} onOpenChange={setGroupOpen} preselected={preselected} />
+      <MentionGroupsDialog open={mentionGroupsOpen} onOpenChange={setMentionGroupsOpen} />
       <CommandPalette
         open={paletteOpen}
         onOpenChange={setPaletteOpen}

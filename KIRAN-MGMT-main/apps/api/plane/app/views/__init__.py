@@ -249,3 +249,6 @@ from .chat.room import (
 from .chat.message import ChatMessageViewSet
 from .chat.invite import ChatRoomInviteViewSet, ChatInviteJoinViewSet
 from .chat.updates import ChatUpdatesViewSet
+from .chat.agent import ChatAgentEndpoint
+from .chat.group import ChatUserGroupViewSet
+from .chat.overview import ChatOverviewViewSet

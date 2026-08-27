@@ -143,4 +143,5 @@ from .chat import (
     ChatMessageSerializer,
     ChatMessageCreateSerializer,
     ChatRoomInviteSerializer,
+    ChatUserGroupSerializer,
 )

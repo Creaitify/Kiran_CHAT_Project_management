@@ -25,6 +25,16 @@ interface AppSidebarItemData {
    * false (the app rail's "icon only" display mode). Falls back to `label`.
    */
   ariaLabel?: string;
+  /**
+   * Unread count drawn over the icon. Zero or absent draws nothing.
+   *
+   * `badgeEmphasis` raises it to the attention colour -- chat uses it for
+   * mentions, because eleven unread messages and one addressed to you by name
+   * are different facts and a rail that cannot tell them apart trains people to
+   * ignore it.
+   */
+  badgeCount?: number;
+  badgeEmphasis?: boolean;
 }
 
 interface AppSidebarItemProps {
@@ -40,6 +50,8 @@ interface AppSidebarItemLabelProps {
 interface AppSidebarItemIconProps {
   icon?: React.ReactNode;
   highlight?: boolean;
+  badgeCount?: number;
+  badgeEmphasis?: boolean;
 }
 
 interface AppSidebarLinkItemProps {
@@ -69,6 +81,15 @@ const styles = {
   label: "text-11 font-medium",
   labelActive: "text-secondary",
   labelInactive: "group-hover:text-secondary text-tertiary",
+  // `min-w` rather than a fixed width so "99+" is not clipped, and
+  // `pointer-events-none` so the badge never swallows the click on the icon
+  // underneath it.
+  badge:
+    "pointer-events-none absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold leading-none",
+  badgeQuiet: "bg-layer-transparent-selected text-secondary",
+  // `text-on-color` is the design system's text-on-a-solid-fill token, so the
+  // badge stays legible in all five themes without a hardcoded white.
+  badgeLoud: "bg-danger-primary text-on-color",
 } as const;
 
 // ============================================================================
@@ -90,17 +111,27 @@ function AppSidebarItemLabel({ highlight = false, label }: AppSidebarItemLabelPr
   );
 }
 
-function AppSidebarItemIcon({ icon, highlight }: AppSidebarItemIconProps) {
+function AppSidebarItemIcon({ icon, highlight, badgeCount = 0, badgeEmphasis }: AppSidebarItemIconProps) {
   if (!icon) return null;
 
   return (
     <div
-      className={cn(styles.icon, {
+      className={cn(styles.icon, "relative", {
         [styles.iconActive]: highlight,
         [styles.iconInactive]: !highlight,
       })}
     >
       {icon}
+      {badgeCount > 0 && (
+        // aria-hidden because the count is already in the item's accessible
+        // name; announcing it twice is worse than not announcing it at all.
+        <span
+          aria-hidden
+          className={cn(styles.badge, badgeEmphasis ? styles.badgeLoud : styles.badgeQuiet)}
+        >
+          {badgeCount > 99 ? "99+" : badgeCount}
+        </span>
+      )}
     </div>
   );
 }
@@ -149,7 +180,18 @@ export type AppSidebarItemComponent = React.FC<AppSidebarItemProps> & {
 function AppSidebarItem({ variant = "link", item }: AppSidebarItemProps) {
   if (!item) return null;
 
-  const { icon, isActive, label, href, onClick, disabled, showLabel = true, ariaLabel } = item;
+  const {
+    icon,
+    isActive,
+    label,
+    href,
+    onClick,
+    disabled,
+    showLabel = true,
+    ariaLabel,
+    badgeCount,
+    badgeEmphasis,
+  } = item;
 
   const hasVisibleLabel = showLabel && !!label;
   // Never override a visible text label -- only name the control when the label is
@@ -158,7 +200,12 @@ function AppSidebarItem({ variant = "link", item }: AppSidebarItemProps) {
 
   const commonItems = (
     <>
-      <AppSidebarItemIcon icon={icon} highlight={isActive} />
+      <AppSidebarItemIcon
+        icon={icon}
+        highlight={isActive}
+        badgeCount={badgeCount}
+        badgeEmphasis={badgeEmphasis}
+      />
       {showLabel && <AppSidebarItemLabel highlight={isActive} label={label} />}
     </>
   );

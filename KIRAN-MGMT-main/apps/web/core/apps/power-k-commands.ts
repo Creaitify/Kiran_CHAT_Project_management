@@ -7,10 +7,17 @@
 /**
  * Command palette entries generated from the app registry.
  *
- * One "Go to <App>" command per registered app the user can see, minus the app
- * they are already in -- offering to navigate somewhere you already are is
+ * Two kinds, from the same registry.
+ *
+ * **Navigation** -- one "Go to <App>" per app the user can see, minus the app
+ * they are already in, because offering to navigate somewhere you already are is
  * noise. Apps without a `keySequence` are skipped, which is how an app opts out
  * of the palette without opting out of the rail.
+ *
+ * **Contributed** -- whatever an app returns from `usePowerKCommands`. This is
+ * the seam for an app's *contents* rather than the app itself: chat contributes
+ * its conversations, so Power-K jumps into a room instead of only into chat.
+ * The shell does not know what any of them are.
  */
 
 import { useMemo } from "react";
@@ -18,12 +25,17 @@ import { useMemo } from "react";
 import type { TPowerKCommandConfig } from "@/components/power-k/core/types";
 import { handlePowerKNavigate } from "@/components/power-k/utils/navigation";
 // local imports
+import { useAppContributedPowerKCommands } from "./contributions";
 import { useApps } from "./use-apps";
 
 export const useAppRegistryPowerKCommands = (): TPowerKCommandConfig[] => {
   const { apps, activeApp, hasMultipleApps } = useApps();
+  // Deliberately outside the `hasMultipleApps` guard below. That guard is about
+  // whether *switching apps* is meaningful; jumping to a conversation inside the
+  // one app you have is meaningful either way.
+  const contributed = useAppContributedPowerKCommands();
 
-  return useMemo(() => {
+  const navigation = useMemo(() => {
     // A single app means there is nowhere to switch to.
     if (!hasMultipleApps) return [];
 
@@ -50,4 +62,6 @@ export const useAppRegistryPowerKCommands = (): TPowerKCommandConfig[] => {
         closeOnSelect: true,
       }));
   }, [apps, activeApp?.key, hasMultipleApps]);
+
+  return useMemo(() => [...navigation, ...contributed], [navigation, contributed]);
 };

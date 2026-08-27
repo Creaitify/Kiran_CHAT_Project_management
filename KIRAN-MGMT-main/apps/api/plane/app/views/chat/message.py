@@ -244,6 +244,15 @@ class ChatMessageViewSet(BaseViewSet):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        # A message still queued has never been seen by anyone but its author,
+        # so there is nothing for a tombstone to explain and nothing pointing at
+        # it -- you cannot reply to, thread on, or link to a message that was
+        # never delivered. Cancelling one removes it. Whoever is allowed to
+        # delete it is established above; this only decides how.
+        if message.scheduled_for:
+            message.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
         # Tombstone, not delete: replies point at this row, threads are rooted
         # on it and keyset cursors walk through it. What goes is the content.
         if not message.tombstoned_at:
@@ -256,6 +265,40 @@ class ChatMessageViewSet(BaseViewSet):
 
         # The tombstoned row is returned rather than a 204 so the client can
         # replace the message in place instead of dropping it out of the list.
+        return Response(ChatMessageSerializer(message).data, status=status.HTTP_200_OK)
+
+    @allow_permission(allowed_roles=[ROLE.ADMIN, ROLE.MEMBER, ROLE.GUEST], level="WORKSPACE")
+    def send_now(self, request, slug, room_id, pk):
+        """Release a queued message ahead of its send time.
+
+        A separate action rather than a writable `scheduled_for`: releasing is
+        the only edit to that field anyone is allowed to make, and exposing the
+        column would also expose rescheduling into the past, which is a way to
+        insert a message above messages people have already read.
+
+        Does the same two things the beat sweep does -- claim now as the send
+        time, clear the queue flag -- so a message released by hand and one
+        released by the clock are indistinguishable afterwards.
+        """
+        self.get_room()
+        message = self.get_queryset().get(pk=pk)
+
+        if message.sender_id != request.user.id:
+            return Response(
+                {"error": "You don't have the required permissions."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if message.scheduled_for:
+            # `created_at` is `auto_now_add`, which only fires on insert, so
+            # assigning it on an existing row sticks.
+            message.created_at = timezone.now()
+            message.scheduled_for = None
+            message.save()
+
+        # Idempotent: releasing an already-released message is a no-op that
+        # returns the row, because the client cannot tell whether its first
+        # request landed.
         return Response(ChatMessageSerializer(message).data, status=status.HTTP_200_OK)
 
     @allow_permission(allowed_roles=[ROLE.ADMIN, ROLE.MEMBER, ROLE.GUEST], level="WORKSPACE")

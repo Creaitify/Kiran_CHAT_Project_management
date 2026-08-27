@@ -39,9 +39,21 @@ from rest_framework.response import Response
 
 # Module imports
 from plane.app.permissions import ROLE, allow_permission
-from plane.app.serializers import ChatMessageSerializer, ChatRoomMemberSerializer, ChatRoomSerializer
+from plane.app.serializers import (
+    ChatMessageSerializer,
+    ChatRoomMemberSerializer,
+    ChatRoomSerializer,
+    ChatUserGroupSerializer,
+)
 from plane.app.views.base import BaseViewSet
-from plane.db.models import ChatMessage, ChatMessageReaction, ChatRoom, ChatRoomInvite, ChatRoomMember
+from plane.db.models import (
+    ChatMessage,
+    ChatMessageReaction,
+    ChatRoom,
+    ChatRoomInvite,
+    ChatRoomMember,
+    ChatUserGroup,
+)
 
 from .room import room_list_context
 
@@ -77,6 +89,7 @@ class ChatUpdatesViewSet(BaseViewSet):
                     "messages": [],
                     "rooms": [],
                     "members": [],
+                    "groups": [],
                     "truncated": False,
                     "server_time": server_time,
                 },
@@ -95,6 +108,21 @@ class ChatUpdatesViewSet(BaseViewSet):
         # Every query below is scoped to this list, so room membership is
         # checked once rather than re-derived per entity type. Hits the
         # (member, room) index on chat_room_members.
+        # Mention groups are workspace-scoped, not room-scoped, so they are
+        # resolved before the room list and ride both exit paths. One query, and
+        # usually zero rows -- a workspace's groups change about as often as its
+        # org chart does.
+        #
+        # Filtering on the group's own `updated_at` is enough because
+        # `ChatUserGroupViewSet._set_members` touches the group row whenever its
+        # membership moves; see the reasoning there for why the membership table
+        # cannot be the signal.
+        groups = (
+            ChatUserGroup.objects.filter(workspace__slug=slug, updated_at__gte=since)
+            .prefetch_related("members")
+            .order_by("updated_at", "id")
+        )
+
         room_ids = list(
             ChatRoomMember.objects.filter(
                 workspace__slug=slug, member=request.user, left_at__isnull=True
@@ -106,6 +134,7 @@ class ChatUpdatesViewSet(BaseViewSet):
                     "messages": [],
                     "rooms": [],
                     "members": [],
+                    "groups": ChatUserGroupSerializer(groups, many=True).data,
                     "truncated": False,
                     "server_time": server_time,
                 },
@@ -181,6 +210,11 @@ class ChatUpdatesViewSet(BaseViewSet):
                     rooms, many=True, context=room_list_context(rooms, request.user.id)
                 ).data,
                 "members": ChatRoomMemberSerializer(members, many=True).data,
+                # Deliberately not capped alongside the others. A workspace with
+                # enough mention groups to fill a page does not exist, and
+                # letting them participate in the truncation cutoff would drag
+                # `server_time` backwards for the entity types that matter.
+                "groups": ChatUserGroupSerializer(groups, many=True).data,
                 "truncated": truncated,
                 "server_time": server_time,
             },
