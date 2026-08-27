@@ -36,31 +36,48 @@ groups, the overview endpoint) has never touched a database.
 
 Editor-only work. Each item says why it is here rather than in Part B.
 
-### A1. Fix the own-message bubble contrast — **30 minutes**
+### A1. Own-message bubble contrast — **DONE, by the parallel session**
 
-One of the three defects Stage 3 named and said to *"fix or consciously defer,
-do not port silently"*. It was ported silently.
+Shipped in `9631934`. One of the three defects Stage 3 named and said to *"fix or
+consciously defer, do not port silently"* — it had been ported silently.
 
-`.message-bubble-mine` (`core/apps/chat/styles.css:343`) paints
-`--chat-gradient-brand` behind `text-primary-foreground`. DESIGN.md marks that
-gradient **decorative only, never put text on this**. Measured against white:
+`.message-bubble-mine` painted `--chat-gradient-brand` behind the bubble's ink.
+DESIGN.md marks that gradient **decorative only, never put text on this**, and
+the bubble was its only consumer carrying text.
 
-| Stop | Ratio | |
-| --- | --- | --- |
-| `#16bce9` | **2.23:1** | fails WCAG AA (needs 4.5) |
-| `#217de8` | **4.07:1** | fails |
-| `#334cbe` | 7.20:1 | passes |
+**The figures here were wrong twice, so they are worth stating carefully.**
 
-At 135° the cyan sits under the *first line of text*. So: every message you
-send, in the light theme.
+The ink is not white. `text-primary-foreground` resolves through the shadcn
+bridge to `--txt-on-color`, which is `--neutral-100` in light and
+`--neutral-black` in dark — both declared in oklch, and neither of them white:
 
-The fix is already written down — DESIGN.md's `--gradient-brand-safe`
-(`#007ca7 → #006cdb → #344cbe`) clears AA across the whole ramp, worst stop
-4.73:1, and keeps the same movement. The dark-theme variant at
-`styles.css:180` needs the same check in the other direction.
+| | resolved ink |
+| --- | --- |
+| light | `#f8fcfe` |
+| dark | `#030812` |
 
-*Why not Part B:* contrast is arithmetic, not appearance. It is decided before
-anything renders. Do it **before** A2/B4 so you only look at chat once.
+`--chat-primary-foreground` *looked* like the answer and was measured by both
+sessions; it had two references repo-wide, both its own definitions. It has since
+been deleted.
+
+Re-measured against the resolved inks, oklch → sRGB → WCAG:
+
+| Ramp | Ink | Stops | Verdict |
+| --- | --- | --- | --- |
+| decorative, light | `#f8fcfe` | 2.16 · 3.94 · 6.97 | 2 of 3 fail |
+| decorative, dark | `#030812` | 9.92 · 5.60 · 3.26 | fails at the **indigo** end |
+| **shipped safe, light** | `#f8fcfe` | 4.58 · 4.88 · 6.96 | AA |
+| **shipped safe, dark** | `#030812` | 9.92 · 5.60 · 4.83 | AA |
+
+Two things fall out of that table and neither is obvious:
+
+- **The two themes fail at opposite ends**, because the ink flips (DESIGN.md
+  §3.1.1) while the gradient does not. So the two safe ramps are corrected in
+  opposite directions and neither can be derived from the other. DESIGN.md
+  originally prescribed one ramp for both; applied to dark ink it fails all three
+  stops (4.24 · 3.98 · 2.79).
+- **The light margin is thin.** 4.58 against a 4.5 requirement is 0.08 of
+  headroom, not the 0.23 the old figure implied. Do not lighten that ramp.
 
 ### A2. Move chat's strings into `@plane/i18n` — **half a day**
 
@@ -363,7 +380,7 @@ B1  apply migrations                    ─┐
 B2  run the tests            ← do first  │  90 minutes, and it decides
 B3  manage.py check                     ─┘  whether anything below is real
 
-A1  fix the contrast          ← before you look at chat even once
+A1  fix the contrast          ← DONE (9631934)
 
 B4  open chat in a browser    ← the real unknown; expect a day of fixes
 B5  B6  B7                    ← each needs its own moving part running
