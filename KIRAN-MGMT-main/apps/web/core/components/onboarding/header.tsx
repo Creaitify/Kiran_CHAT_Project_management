@@ -14,6 +14,7 @@ import { cn } from "@plane/utils";
 // hooks
 import { useInstance } from "@/hooks/store/use-instance";
 import { useUser } from "@/hooks/store/user";
+import { ThemeToggle } from "@/components/appearance/theme-toggle";
 // local imports
 import { SwitchAccountDropdown } from "./switch-account-dropdown";
 
@@ -85,7 +86,10 @@ export const OnboardingHeader = observer(function OnboardingHeader(props: Onboar
           )}
           <PlaneLockup height={20} width={95} className="text-primary" />
         </div>
-        <SwitchAccountDropdown fullName={userName} />
+        <div className="flex items-center gap-4">
+          <ThemeToggle />
+          <SwitchAccountDropdown fullName={userName} />
+        </div>
       </div>
     </div>
   );

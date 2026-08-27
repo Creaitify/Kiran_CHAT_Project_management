@@ -17,6 +17,7 @@ import type { IWorkspace } from "@plane/types";
 import { CustomSelect, Input } from "@plane/ui";
 import { cn, copyUrlToClipboard, getFileURL, validateWorkspaceName } from "@plane/utils";
 // components
+import { ThemeSwitcher } from "@/components/appearance/theme-switcher";
 import { WorkspaceImageUploadModal } from "@/components/core/modals/workspace-image-upload-modal";
 import { TimezoneSelect } from "@/components/global/timezone-select";
 // hooks
@@ -277,6 +278,15 @@ export const WorkspaceDetails = observer(function WorkspaceDetails() {
                     <TimezoneSelect value={value} onChange={onChange} disabled={!isAdmin} />
                   </>
                 )}
+              />
+            </div>
+            <div className="flex flex-col gap-2 pt-2">
+              <ThemeSwitcher
+                option={{
+                  id: "theme",
+                  title: "theme",
+                  description: "select_or_customize_your_interface_color_scheme",
+                }}
               />
             </div>
           </div>
