@@ -19,6 +19,8 @@
 
 import { chatAppManifest } from "./chat/manifest";
 import { helloAppManifest } from "./hello/manifest";
+import { notesAppManifest } from "./notes/manifest";
+import { operationsAppManifest } from "./operations/manifest";
 import { projectsAppManifest } from "./projects/manifest";
 import type { TAppKey, TAppManifest, TAppVisibilityContext } from "./types";
 
@@ -26,7 +28,7 @@ import type { TAppKey, TAppManifest, TAppVisibilityContext } from "./types";
  * Registered apps, in registration order. Presentation order comes from
  * `manifest.order`, not from this array.
  */
-const MANIFESTS: TAppManifest[] = [projectsAppManifest, chatAppManifest, helloAppManifest];
+const MANIFESTS: TAppManifest[] = [projectsAppManifest, chatAppManifest, notesAppManifest, operationsAppManifest, helloAppManifest];
 
 /**
  * Fails loudly in development on the two mistakes that are silent at runtime:

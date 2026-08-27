@@ -28,6 +28,8 @@ import { layout } from "@react-router/dev/routes";
 import type { RouteConfigEntry } from "@react-router/dev/routes";
 import { chatAppRoutes } from "./chat/routes";
 import { helloAppRoutes } from "./hello/routes";
+import { notesAppRoutes } from "./notes/routes";
+import { operationsAppRoutes } from "./operations/routes";
 
 /**
  * Nests an app's screens inside the signed-in workspace shell.
@@ -44,4 +46,4 @@ function inWorkspaceShell(children: RouteConfigEntry[]): RouteConfigEntry[] {
 }
 
 /** Every registered app's routes, ready to merge into the core config. */
-export const appRegistryRoutes: RouteConfigEntry[] = inWorkspaceShell([...chatAppRoutes, ...helloAppRoutes]);
+export const appRegistryRoutes: RouteConfigEntry[] = inWorkspaceShell([...chatAppRoutes, ...notesAppRoutes, ...operationsAppRoutes, ...helloAppRoutes]);

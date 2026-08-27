@@ -7,6 +7,7 @@ from .group import ChatUserGroupViewSet
 from .invite import ChatInviteJoinViewSet, ChatRoomInviteViewSet
 from .message import ChatMessageViewSet
 from .overview import ChatOverviewViewSet
+from .reference import ChatReferenceViewSet
 from .room import ChatRoomMemberViewSet, ChatRoomReadMarkerViewSet, ChatRoomViewSet
 from .updates import ChatUpdatesViewSet
 
@@ -15,6 +16,7 @@ __all__ = [
     "ChatInviteJoinViewSet",
     "ChatMessageViewSet",
     "ChatOverviewViewSet",
+    "ChatReferenceViewSet",
     "ChatRoomInviteViewSet",
     "ChatRoomMemberViewSet",
     "ChatRoomReadMarkerViewSet",

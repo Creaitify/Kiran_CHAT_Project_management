@@ -33,6 +33,8 @@ import type { EUserPermissionsLevel } from "@plane/constants";
 import type { EUserProjectRoles, EUserWorkspaceRoles } from "@plane/types";
 // components
 import type { TPowerKCommandConfig } from "@/components/power-k/core/types";
+// local imports
+import type { TBacklinks, TEntityLinkSpec, TEntityRef } from "./links";
 
 export type TAppKey = string;
 
@@ -167,4 +169,26 @@ export type TAppManifest = {
    * Return a stable array; the shell memoises on identity.
    */
   usePowerKCommands?: (ctx: TAppContributionContext) => TPowerKCommandConfig[];
+  /**
+   * How this app's own objects are recognised and rendered by other apps.
+   *
+   * Declare it and a chat message containing one of your URLs renders as a chip
+   * instead of a raw link, anywhere in the product, without chat knowing what
+   * your objects are. Omit it and your URLs stay ordinary links, which is a
+   * perfectly good answer for an app whose screens are not objects.
+   *
+   * See `./links.ts` for why a ref is three opaque strings.
+   */
+  entityLinks?: TEntityLinkSpec;
+  /**
+   * What this app holds that points at *someone else's* object.
+   *
+   * Chat implements this to answer "which messages mention this work item".
+   * The asking app never learns that the answer came from chat -- it asks the
+   * registry, and the registry asks whoever registered.
+   *
+   * `ref` is null when there is nothing to look up, or when this app is hidden;
+   * return `{items: [], loading: false}` and do no work in that case.
+   */
+  useBacklinks?: (ref: TEntityRef | null, ctx: TAppContributionContext) => TBacklinks;
 };

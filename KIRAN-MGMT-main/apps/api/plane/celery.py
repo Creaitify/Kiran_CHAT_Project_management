@@ -55,6 +55,25 @@ app.conf.beat_schedule = {
         # rows.
         "schedule": crontab(minute="*"),
     },
+    "deliver-due-reminders": {
+        "task": "plane.bgtasks.operations_task.deliver_due_reminders",
+        # Every minute. A reminder set for 09:00 that arrives at 09:15 is a
+        # reminder people stop trusting.
+        "schedule": crontab(minute="*"),
+    },
+    "send-scheduled-reports": {
+        "task": "plane.bgtasks.operations_task.send_scheduled_reports",
+        # 07:00 UTC daily. The task itself decides which schedules are due today
+        # -- beat only has to offer it the chance once a day, and a schedule's
+        # own `send_weekday` plus `last_run_for` do the rest.
+        "schedule": crontab(hour=7, minute=0),
+    },
+    "suggest-cross-department-project-links": {
+        "task": "plane.bgtasks.operations_task.suggest_project_links",
+        # 04:00 UTC daily. Team composition moves slowly; running this more often
+        # would propose the same links against the same data.
+        "schedule": crontab(hour=4, minute=0),
+    },
     "push-instance-metrics": {
         "task": "plane.license.bgtasks.telemetry_metrics.push_instance_metrics",
         "schedule": schedule(run_every=timedelta(minutes=METRICS_PUSH_INTERVAL_MINUTES)),

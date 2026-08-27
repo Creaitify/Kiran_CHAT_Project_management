@@ -252,3 +252,15 @@ from .chat.updates import ChatUpdatesViewSet
 from .chat.agent import ChatAgentEndpoint
 from .chat.group import ChatUserGroupViewSet
 from .chat.overview import ChatOverviewViewSet
+from .chat.reference import ChatReferenceViewSet
+
+from .operations import (
+    CostReportViewSet,
+    DepartmentViewSet,
+    MemberRateViewSet,
+    ProjectLinkViewSet,
+    ReminderViewSet,
+    ReportRunViewSet,
+    ReportScheduleViewSet,
+    TimeEntryViewSet,
+)

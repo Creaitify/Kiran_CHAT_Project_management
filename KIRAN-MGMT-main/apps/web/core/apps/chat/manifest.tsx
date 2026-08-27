@@ -6,7 +6,7 @@
 
 import { MessageSquareIcon } from "lucide-react";
 import type { TAppManifest } from "../types";
-import { useChatBadge, useChatPowerKCommands } from "./contributions";
+import { useChatBacklinks, useChatBadge, useChatPowerKCommands } from "./contributions";
 
 /**
  * Chat -- the first app ported in under the registry rather than built on it.
@@ -38,4 +38,8 @@ export const chatAppManifest: TAppManifest = {
   // does with the visibility flag it is handed.
   useBadge: useChatBadge,
   usePowerKCommands: useChatPowerKCommands,
+  // Chat holds no referenceable objects of its own yet, so no `entityLinks` --
+  // but it does hold references to everyone else's, which is the half that
+  // makes a work item able to show its conversations.
+  useBacklinks: useChatBacklinks,
 };

@@ -24,6 +24,9 @@ import { isSafeHref } from "../lib/link-preview";
 import { isBroadcast, SPECIAL_TOKEN, USER_TOKEN } from "../lib/mentions";
 import type { User, UserGroup, UserId } from "../lib/chat-types";
 import { cn } from "../lib/cn";
+// apps
+import { entityLabel, parseEntityRef } from "../../links";
+import { useAppContext } from "../../use-app-context";
 
 /* -------------------------------------------------------------------------- */
 /* remark plugin: turn stored mention tokens into styled spans                 */
@@ -106,6 +109,10 @@ function MarkdownContentImpl({
   onPrimary = false,
   className,
 }: MarkdownContentProps) {
+  // Only for resolving cross-app links: a work-item URL is only *this*
+  // workspace's work item, and a link to another one must stay a plain link.
+  const { workspaceSlug } = useAppContext();
+
   const plugins = useMemo(() => {
     const resolve = (raw: string) => {
       const user = /^<@/.test(raw) ? raw.slice(2, -1) : null;
@@ -144,6 +151,35 @@ function MarkdownContentImpl({
           a({ href, children, node, ...rest }) {
             void node;
             if (!href || !isSafeHref(href)) return <span {...rest}>{children}</span>;
+
+            // A link to something inside KIRAN renders as a chip rather than a
+            // URL. Chat has no idea what it is: it hands the href to the app
+            // registry, and whichever app claims it supplies the label. Nothing
+            // claims it -> ordinary link, which is also what happens on the
+            // server, where there is no origin to compare against.
+            const entity = parseEntityRef(href, workspaceSlug);
+            const entityText = entityLabel(entity);
+            if (entity && entityText) {
+              return (
+                <a
+                  {...rest}
+                  href={href}
+                  // Styled inline the way mentions are, and reading `onPrimary`
+                  // the same way: on the sender's own gradient bubble a tinted
+                  // chip disappears, so it goes translucent-white instead.
+                  className={cn(
+                    "rounded px-1 py-px font-medium no-underline",
+                    onPrimary ? "bg-white/20 text-inherit" : "bg-primary/12 text-primary"
+                  )}
+                  // Same-origin, so it stays in the tab -- opening your own
+                  // product in a new window is a small rudeness.
+                  rel="noopener"
+                >
+                  {entityText}
+                </a>
+              );
+            }
+
             return (
               <a
                 {...rest}

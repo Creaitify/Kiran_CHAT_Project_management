@@ -30,6 +30,8 @@ An app declares one object, `TAppManifest` (`core/apps/types.ts`):
 | `keywords` | no | Extra palette search terms. |
 | `useBadge` | no | Live count on your rail icon. See below. |
 | `usePowerKCommands` | no | Palette entries for your app's *contents*. See below. |
+| `entityLinks` | no | Makes your objects referenceable from other apps. See below. |
+| `useBacklinks` | no | Answers "what do I hold that points at this?" See below. |
 
 Three surfaces read it and need no edit when you add an app:
 
@@ -75,10 +77,48 @@ usePowerKCommands: useDirectoryPowerKCommands,
    surfaces — precisely because `ChatProvider` only exists while chat is open,
    which is when a badge about chat stops mattering.
 
-Palette commands are ordinary `TPowerKCommandConfig` objects. One trap: do **not**
-route them through `handlePowerKNavigate` if your URL carries a query string. It
-normalises via `joinUrlPath`, which returns `new URL(...).pathname` — the query
-is dropped silently. Call `ctx.router.push()` directly instead.
+Palette commands are ordinary `TPowerKCommandConfig` objects, and
+`handlePowerKNavigate` preserves a query string or hash on the last segment. It
+did not until Notes hit the same wall Chat had — `joinUrlPath` normalises via
+`new URL(...).pathname`, which drops everything after the `?`. That was a shell
+defect and was fixed in the shell; you should not need to know about it.
+
+### Referencing another app's objects
+
+Two independent halves. Implement either, both, or neither.
+
+**Own an entity** — `entityLinks`. Say how to recognise your own URLs and how one
+of your objects should read elsewhere:
+
+```ts
+// core/apps/directory/entity-links.ts
+export const personEntityLinks: TEntityLinkSpec = {
+  parse: (pathname, slug) => {
+    const m = /^\/([^/]+)\/directory\/([\w-]+)$/.exec(pathname);
+    return m && m[1] === slug ? { appKey: "directory", kind: "person", id: m[2] } : null;
+  },
+  href: (ref, slug) => `/${slug}/directory/${ref.id}`,
+  label: (ref) => ref.id,
+};
+```
+
+Declare that and a link to one of your pages, pasted into a chat message,
+renders as a chip — with chat having no idea what a person is.
+
+**Reference someone else's** — `useBacklinks`. Answer "what do I hold that points
+at this?" for a ref you did not mint. Chat implements it so a work item can list
+the conversations about it.
+
+Then any detail screen gets the other side for free:
+
+```tsx
+<EntityBacklinks entity={{ appKey: "projects", kind: "work-item", id: "KIR-42" }} />
+```
+
+**A ref is three opaque strings** — `{appKey, kind, id}` — and that is the whole
+point. The moment `links.ts` enumerates `"work-item" | "person"`, adding an app
+means editing the shell. Only the owner parses its own `id`; everyone else passes
+it around.
 
 ### What the shell gives you
 

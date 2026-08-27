@@ -101,3 +101,14 @@ from .chat import (
     ChatUserGroup,
     ChatUserGroupMember,
 )
+
+from .operations import (
+    Department,
+    ProjectDepartment,
+    ProjectLink,
+    MemberRate,
+    TimeEntry,
+    ReportSchedule,
+    ReportRun,
+    Reminder,
+)

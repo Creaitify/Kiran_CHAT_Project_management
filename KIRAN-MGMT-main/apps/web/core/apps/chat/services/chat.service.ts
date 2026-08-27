@@ -63,6 +63,15 @@ export type TSendMessagePayload = {
   forwarded_from?: string | null;
 };
 
+export type TWireReference = {
+  id: string;
+  room_id: string;
+  room_title: string;
+  excerpt: string;
+  author: string | null;
+  created_at: string;
+};
+
 export type TUserGroupPayload = {
   handle: string;
   name: string;
@@ -76,6 +85,27 @@ export class ChatService extends APIService {
 
   private root(workspaceSlug: string): string {
     return `/api/workspaces/${encodeURIComponent(workspaceSlug)}/chat`;
+  }
+
+  /* ------------------------------------------------------------- references */
+
+  /**
+   * Messages that link to somebody else's object.
+   *
+   * `kind` and `id` are opaque here and opaque on the server. Chat never learns
+   * what a work item is; it searches its own message text for the URL the kind
+   * implies. See `views/chat/reference.py`.
+   */
+  async fetchReferences(
+    workspaceSlug: string,
+    kind: string,
+    id: string
+  ): Promise<{ items: TWireReference[] }> {
+    return this.get(`${this.root(workspaceSlug)}/references/`, { params: { kind, id } })
+      .then((response) => response?.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
   }
 
   /* --------------------------------------------------------------- overview */

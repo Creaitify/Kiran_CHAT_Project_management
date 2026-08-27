@@ -53,6 +53,10 @@ import { IssueCycleSelect } from "./cycle-select";
 import { IssueLabel } from "./label";
 import { IssueModuleSelect } from "./module-select";
 import type { TIssueOperations } from "./root";
+// apps
+import { EntityBacklinks } from "@/apps/entity-backlinks";
+import type { TEntityRef } from "@/apps/links";
+import { WORK_ITEM_KIND } from "@/apps/projects/entity-links";
 
 type Props = {
   workspaceSlug: string;
@@ -94,6 +98,14 @@ export const IssueDetailsSidebar = observer(function IssueDetailsSidebar(props: 
 
   // derived values
   const projectDetails = getProjectById(issue.project_id);
+
+  // This work item, as the rest of the product refers to it. `workItemEntityLinks`
+  // in the Projects manifest owns the shape; this only has to name the same
+  // identifier the URL carries, which is what people paste elsewhere.
+  const entityRef: TEntityRef | null =
+    projectDetails?.identifier && issue.sequence_id
+      ? { appKey: "projects", kind: WORK_ITEM_KIND, id: `${projectDetails.identifier}-${issue.sequence_id}` }
+      : null;
   const stateDetails = getStateById(issue.state_id);
 
   const minDate = issue.start_date ? getDate(issue.start_date) : null;
@@ -331,6 +343,19 @@ export const IssueDetailsSidebar = observer(function IssueDetailsSidebar(props: 
               />
             </SidebarPropertyListItem>
           </div>
+
+          {/*
+            Cross-app references. Projects does not know who answers this --
+            it hands the registry a ref to itself and renders whatever comes
+            back. Today that is chat; the import here is the shell's, not
+            chat's. Renders nothing when nothing references this work item,
+            which is most of them.
+          */}
+          {entityRef && (
+            <div className="px-1">
+              <EntityBacklinks entity={entityRef} />
+            </div>
+          )}
         </div>
       </div>
     </>

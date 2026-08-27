@@ -18,13 +18,16 @@
  * telling you about chat stops being useful.
  */
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { MessageSquareIcon } from "lucide-react";
 // components
 import type { TPowerKCommandConfig } from "@/components/power-k/core/types";
+import { handlePowerKNavigate } from "@/components/power-k/utils/navigation";
 // apps
+import type { TBacklinks, TEntityRef } from "../links";
 import type { TAppBadge, TAppContributionContext } from "../types";
 // local imports
+import { ChatService } from "./services/chat.service";
 import { useChatOverview } from "./services/overview";
 
 /**
@@ -87,19 +90,82 @@ export function useChatPowerKCommands(ctx: TAppContributionContext): TPowerKComm
         const workspaceSlug = commandCtx.params.workspaceSlug?.toString();
         if (!workspaceSlug) return;
         // `?room=` is the deep link chat's own permalinks already use, so a
-        // palette jump and a pasted link land the same way.
-        //
-        // `router.push` directly rather than `handlePowerKNavigate`: that helper
-        // runs its result through `joinUrlPath`, which normalises by returning
-        // `new URL(...).pathname` -- and a pathname has no query string. Every
-        // command that ships one today is path-only, so the helper has never had
-        // to care; routed through it, this would silently drop the room and land
-        // on whichever conversation chat opens by default.
-        commandCtx.router.push(`/${workspaceSlug}/chat?room=${room.id}`);
+        // palette jump and a pasted link land the same way. The helper used to
+        // drop the query -- that was a shell defect, and it is fixed in the
+        // shell rather than worked around here.
+        handlePowerKNavigate(commandCtx, [`/${workspaceSlug}/chat?room=${room.id}`]);
       },
       isEnabled: (commandCtx) => Boolean(commandCtx.params.workspaceSlug?.toString()),
       isVisible: (commandCtx) => Boolean(commandCtx.params.workspaceSlug?.toString()),
       closeOnSelect: true,
     }));
   }, [overview]);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Backlinks                                                                  */
+/* -------------------------------------------------------------------------- */
+
+const service = new ChatService();
+
+const EMPTY: TBacklinks = { items: [], loading: false };
+
+/**
+ * Which conversations mention somebody else's object.
+ *
+ * The ref arrives as three opaque strings and leaves as three opaque strings —
+ * this hook never asks what `kind` means, and the endpoint behind it does not
+ * either. That is the whole test: projects renders a list of chat messages about
+ * a work item, and neither app imports the other.
+ *
+ * Fetched per ref with no cache. A work item's panel is opened deliberately and
+ * read once; the thirty-second poll that keeps the rail badge current would be
+ * the wrong shape here, and caching a list nobody is watching change is worse
+ * than re-asking.
+ */
+export function useChatBacklinks(ref: TEntityRef | null, ctx: TAppContributionContext): TBacklinks {
+  const [state, setState] = useState<TBacklinks>(EMPTY);
+
+  const kind = ref?.kind ?? "";
+  const id = ref?.id ?? "";
+  const { workspaceSlug, isVisible } = ctx;
+
+  useEffect(() => {
+    if (!isVisible || !workspaceSlug || !kind || !id) {
+      setState(EMPTY);
+      return;
+    }
+
+    let live = true;
+    setState({ items: [], loading: true });
+
+    void service
+      .fetchReferences(workspaceSlug, kind, id)
+      .then((response) => {
+        if (!live) return;
+        setState({
+          loading: false,
+          items: (response?.items ?? []).map((item) => ({
+            id: item.id,
+            excerpt: item.excerpt,
+            // `?room=` and `&msg=` are chat's own permalink shape, so a click
+            // from a work item lands exactly where a pasted link would.
+            href: `/${workspaceSlug}/chat?room=${item.room_id}&msg=${item.id}`,
+            timestamp: Date.parse(item.created_at) || 0,
+            ...(item.author ? { author: item.author } : {}),
+          })),
+        });
+      })
+      .catch(() => {
+        // A panel that says "no conversations" when chat is down is wrong but
+        // harmless; one that throws takes the work item's screen with it.
+        if (live) setState(EMPTY);
+      });
+
+    return () => {
+      live = false;
+    };
+  }, [isVisible, workspaceSlug, kind, id]);
+
+  return state;
 }

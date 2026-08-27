@@ -16,6 +16,7 @@ from plane.app.views import (
     ChatAgentEndpoint,
     ChatUserGroupViewSet,
     ChatOverviewViewSet,
+    ChatReferenceViewSet,
 )
 
 
@@ -117,6 +118,13 @@ urlpatterns = [
         "workspaces/<str:slug>/chat/overview/",
         ChatOverviewViewSet.as_view({"get": "retrieve"}),
         name="chat-overview",
+    ),
+    # Cross-app backlinks: which messages reference somebody else's object.
+    # Chat does not know what the object is -- see views/chat/reference.py.
+    path(
+        "workspaces/<str:slug>/chat/references/",
+        ChatReferenceViewSet.as_view({"get": "list"}),
+        name="chat-reference",
     ),
     # mention groups -- @engineering and friends. Workspace-scoped, not
     # room-scoped: a handle means the same team wherever it is typed.

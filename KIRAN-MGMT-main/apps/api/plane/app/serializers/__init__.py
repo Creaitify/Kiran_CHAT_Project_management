@@ -145,3 +145,15 @@ from .chat import (
     ChatRoomInviteSerializer,
     ChatUserGroupSerializer,
 )
+
+from .operations import (
+    DepartmentSerializer,
+    ProjectDepartmentSerializer,
+    ProjectLinkSerializer,
+    MemberRateSerializer,
+    TimeEntrySerializer,
+    TimeEntryCreateSerializer,
+    ReportScheduleSerializer,
+    ReportRunSerializer,
+    ReminderSerializer,
+)

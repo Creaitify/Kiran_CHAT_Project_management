@@ -6,6 +6,7 @@
 
 import { PlaneNewIcon } from "@plane/propel/icons";
 import type { TAppManifest } from "../types";
+import { workItemEntityLinks } from "./entity-links";
 
 /**
  * Projects -- the original app, and the shell's fallback.
@@ -31,4 +32,8 @@ export const projectsAppManifest: TAppManifest = {
   isFallback: true,
   keySequence: "ap",
   keywords: ["work items", "issues", "cycles", "modules"],
+  // Makes a work item referenceable from any other app. Projects gains nothing
+  // from this itself -- it is what lets chat render a pasted work-item link as a
+  // chip without chat knowing what a work item is.
+  entityLinks: workItemEntityLinks,
 };
