@@ -122,7 +122,6 @@
   --chat-popover: rgb(255 255 255 / 96%);
   --chat-popover-foreground: #102342;
   --chat-primary: #176ee8;
-  --chat-primary-foreground: #ffffff;
   --chat-secondary: rgb(222 241 255 / 82%);
   --chat-secondary-foreground: #254264;
   --chat-muted: rgb(225 240 251 / 78%);
@@ -162,7 +161,6 @@
   --chat-popover: rgb(7 18 37 / 97%);
   --chat-popover-foreground: #edf7ff;
   --chat-primary: #43a8ff;
-  --chat-primary-foreground: #03101f;
   --chat-secondary: rgb(17 43 73 / 86%);
   --chat-secondary-foreground: #d1e8f9;
   --chat-muted: rgb(14 36 64 / 84%);
