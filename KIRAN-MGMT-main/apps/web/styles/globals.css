@@ -3,6 +3,10 @@
 @import "@plane/propel/styles/react-day-picker.css";
 @import "./power-k.css";
 @import "./emoji.css";
+/* Chat vendors its own palette and re-registers the Tailwind scale entries the
+   design system removed. Scoped to .kiran-chat-app where CSS allows it; see the
+   header of that file for what could not be scoped and why. */
+@import "../core/apps/chat/styles.css";
 @plugin "@tailwindcss/typography";
 
 /* stickies and editor colors */

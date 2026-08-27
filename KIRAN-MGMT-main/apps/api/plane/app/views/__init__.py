@@ -240,3 +240,27 @@ from .notification.base import MarkAllReadNotificationViewSet
 from .user.base import AccountEndpoint, ProfileEndpoint, UserSessionEndpoint
 
 from .timezone.base import TimezoneEndpoint
+
+from .chat.room import (
+    ChatRoomViewSet,
+    ChatRoomMemberViewSet,
+    ChatRoomReadMarkerViewSet,
+)
+from .chat.message import ChatMessageViewSet
+from .chat.invite import ChatRoomInviteViewSet, ChatInviteJoinViewSet
+from .chat.updates import ChatUpdatesViewSet
+from .chat.agent import ChatAgentEndpoint
+from .chat.group import ChatUserGroupViewSet
+from .chat.overview import ChatOverviewViewSet
+from .chat.reference import ChatReferenceViewSet
+
+from .operations import (
+    CostReportViewSet,
+    DepartmentViewSet,
+    MemberRateViewSet,
+    ProjectLinkViewSet,
+    ReminderViewSet,
+    ReportRunViewSet,
+    ReportScheduleViewSet,
+    TimeEntryViewSet,
+)

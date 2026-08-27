@@ -65,19 +65,21 @@ export const ThemeSwitcher = observer(function ThemeSwitcher(props: {
           );
         }
 
-        const updatePromise = updateUserTheme({ theme: themeOption.value });
-        setPromiseToast(updatePromise, {
-          loading: "Updating theme...",
-          success: {
-            title: "Theme updated",
-            message: () => `Switched to ${themeOption.i18n_label ?? themeOption.value}.`,
-          },
-          error: {
-            title: "Error!",
-            message: () => "Failed to update theme. Please try again.",
-          },
-        });
-        await updatePromise;
+        if (userProfile?.id) {
+          const updatePromise = updateUserTheme({ theme: themeOption.value });
+          setPromiseToast(updatePromise, {
+            loading: "Updating theme...",
+            success: {
+              title: "Theme updated",
+              message: () => `Switched to ${themeOption.i18n_label ?? themeOption.value}.`,
+            },
+            error: {
+              title: "Error!",
+              message: () => "Failed to update theme. Please try again.",
+            },
+          });
+          await updatePromise;
+        }
 
         // Only the custom theme needs a reload. The built-in themes are pure
         // token swaps behind [data-theme], so setTheme() above has already
@@ -91,8 +93,6 @@ export const ThemeSwitcher = observer(function ThemeSwitcher(props: {
     },
     [setTheme, updateUserTheme, userProfile]
   );
-
-  if (!userProfile) return null;
 
   return (
     <>
@@ -108,7 +108,7 @@ export const ThemeSwitcher = observer(function ThemeSwitcher(props: {
           />
         }
       />
-      {userProfile.theme?.theme === "custom" && <CustomThemeSelector />}
+      {userProfile?.theme?.theme === "custom" && <CustomThemeSelector />}
     </>
   );
 });

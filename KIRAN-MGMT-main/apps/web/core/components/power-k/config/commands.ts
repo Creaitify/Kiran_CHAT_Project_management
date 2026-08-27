@@ -4,6 +4,8 @@
  * See the LICENSE file for details.
  */
 
+// apps
+import { useAppRegistryPowerKCommands } from "@/apps/power-k-commands";
 // local imports
 import type { TPowerKCommandConfig } from "../core/types";
 import { usePowerKContextBasedActions } from "../ui/pages/context-based";
@@ -15,6 +17,7 @@ import { usePowerKNavigationCommands } from "./navigation/root";
 import { usePowerKPreferencesCommands } from "./preferences-commands";
 
 export const useProjectsAppPowerKCommands = (): TPowerKCommandConfig[] => {
+  const appCommands = useAppRegistryPowerKCommands();
   const navigationCommands = usePowerKNavigationCommands();
   const creationCommands = usePowerKCreationCommands();
   const contextualCommands = usePowerKContextBasedActions();
@@ -24,6 +27,8 @@ export const useProjectsAppPowerKCommands = (): TPowerKCommandConfig[] => {
   const helpCommands = usePowerKHelpCommands();
 
   return [
+    // Switching apps outranks navigating within one.
+    ...appCommands,
     ...navigationCommands,
     ...creationCommands,
     ...contextualCommands,

@@ -90,3 +90,25 @@ from .device import Device, DeviceSession
 from .sticky import Sticky
 
 from .description import Description, DescriptionVersion
+
+from .chat import (
+    ChatRoom,
+    ChatRoomMember,
+    ChatMessage,
+    ChatMessageReaction,
+    ChatRoomInvite,
+    ChatSavedMessage,
+    ChatUserGroup,
+    ChatUserGroupMember,
+)
+
+from .operations import (
+    Department,
+    ProjectDepartment,
+    ProjectLink,
+    MemberRate,
+    TimeEntry,
+    ReportSchedule,
+    ReportRun,
+    Reminder,
+)

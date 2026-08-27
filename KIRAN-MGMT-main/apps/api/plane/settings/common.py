@@ -141,6 +141,10 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "anon": "30/minute",
         "asset_id": "5/minute",
+        # Chat's AI assistant, per authenticated user. Every call here is a paid
+        # request to an LLM provider, and the client-side budget in
+        # `chat-store.tsx` lives in a browser tab, so this is the real ceiling.
+        "chat_agent": os.environ.get("CHAT_AGENT_RATE_LIMIT", "20/minute"),
     },
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     "DEFAULT_RENDERER_CLASSES": ("rest_framework.renderers.JSONRenderer",),

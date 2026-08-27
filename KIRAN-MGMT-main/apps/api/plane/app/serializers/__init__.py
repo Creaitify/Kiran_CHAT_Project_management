@@ -135,3 +135,25 @@ from .draft import (
     DraftIssueSerializer,
     DraftIssueDetailSerializer,
 )
+
+from .chat import (
+    ChatRoomSerializer,
+    ChatRoomLiteSerializer,
+    ChatRoomMemberSerializer,
+    ChatMessageSerializer,
+    ChatMessageCreateSerializer,
+    ChatRoomInviteSerializer,
+    ChatUserGroupSerializer,
+)
+
+from .operations import (
+    DepartmentSerializer,
+    ProjectDepartmentSerializer,
+    ProjectLinkSerializer,
+    MemberRateSerializer,
+    TimeEntrySerializer,
+    TimeEntryCreateSerializer,
+    ReportScheduleSerializer,
+    ReportRunSerializer,
+    ReminderSerializer,
+)

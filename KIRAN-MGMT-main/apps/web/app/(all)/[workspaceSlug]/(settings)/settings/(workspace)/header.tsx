@@ -12,6 +12,7 @@ import { Breadcrumbs } from "@plane/ui";
 // components
 import { BreadcrumbLink } from "@/components/common/breadcrumb-link";
 import { SettingsPageHeader } from "@/components/settings/page-header";
+import { ThemeToggle } from "@/components/appearance/theme-toggle";
 import { WORKSPACE_SETTINGS_ICONS } from "@/components/settings/workspace/sidebar/item-icon";
 
 export const GeneralWorkspaceSettingsHeader = observer(function GeneralWorkspaceSettingsHeader() {
@@ -37,6 +38,7 @@ export const GeneralWorkspaceSettingsHeader = observer(function GeneralWorkspace
           </Breadcrumbs>
         </div>
       }
+      rightItem={<ThemeToggle />}
     />
   );
 });

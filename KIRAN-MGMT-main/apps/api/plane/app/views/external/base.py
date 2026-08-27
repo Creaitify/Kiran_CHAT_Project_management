@@ -149,6 +149,39 @@ def _openai_response(final_text: str, api_key: str, model: str) -> str | None:
     return chat_completion.choices[0].message.content
 
 
+def llm_error_message(exc: Exception, provider: str) -> str:
+    """Map a provider SDK exception onto a message that is safe to show a user.
+
+    Logs the original, then returns a sentence naming the provider and, where the
+    SDK made it knowable, the thing an admin would have to change. Anything
+    unrecognised collapses to the generic line rather than leaking a stack detail
+    or a key fragment into the UI.
+
+    Split out of `get_llm_response` so the streaming chat agent
+    (`plane.app.views.chat.agent`) reports failures in the same words: the two
+    call paths differ in how they transport a token, not in what "your API key is
+    wrong" means.
+    """
+    log_exception(exc)
+
+    if isinstance(exc, anthropic.AuthenticationError):
+        return f"Invalid API key for {provider}"
+    if isinstance(exc, anthropic.RateLimitError):
+        return f"Rate limit exceeded for {provider}"
+    if isinstance(exc, anthropic.BadRequestError):
+        return f"{provider} rejected the request -- check the configured model name"
+
+    # The OpenAI SDK raises its own classes that happen to share these names.
+    error_type = exc.__class__.__name__
+    if error_type == "AuthenticationError":
+        return f"Invalid API key for {provider}"
+    if error_type == "RateLimitError":
+        return f"Rate limit exceeded for {provider}"
+    if error_type in ("BadRequestError", "NotFoundError"):
+        return f"{provider} rejected the request -- check the configured model name"
+    return f"Error occurred while generating response from {provider}"
+
+
 def get_llm_response(task, prompt, api_key: str, model: str, provider: str) -> Tuple[str | None, str | None]:
     """Helper to get LLM completion response"""
     final_text = task + "\n" + prompt
@@ -161,25 +194,8 @@ def get_llm_response(task, prompt, api_key: str, model: str, provider: str) -> T
                 model = f"gemini/{model}"
             text = _openai_response(final_text, api_key, model)
         return text, None
-    except anthropic.AuthenticationError as e:
-        log_exception(e)
-        return None, f"Invalid API key for {provider}"
-    except anthropic.RateLimitError as e:
-        log_exception(e)
-        return None, f"Rate limit exceeded for {provider}"
-    except anthropic.BadRequestError as e:
-        log_exception(e)
-        return None, f"{provider} rejected the request -- check the configured model name"
     except Exception as e:
-        log_exception(e)
-        # The OpenAI SDK raises its own classes that happen to share these names.
-        error_type = e.__class__.__name__
-        if error_type == "AuthenticationError":
-            return None, f"Invalid API key for {provider}"
-        elif error_type == "RateLimitError":
-            return None, f"Rate limit exceeded for {provider}"
-        else:
-            return None, f"Error occurred while generating response from {provider}"
+        return None, llm_error_message(e, provider)
 
 
 class GPTIntegrationEndpoint(BaseAPIView):

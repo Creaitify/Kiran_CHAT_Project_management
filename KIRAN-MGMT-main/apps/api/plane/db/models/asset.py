@@ -44,6 +44,12 @@ class FileAsset(BaseModel):
         PROJECT_COVER = "PROJECT_COVER"
         DRAFT_ISSUE_ATTACHMENT = "DRAFT_ISSUE_ATTACHMENT"
         DRAFT_ISSUE_DESCRIPTION = "DRAFT_ISSUE_DESCRIPTION"
+        # Chat is workspace-scoped and has no project, so its assets carry no
+        # project FK. The owning message is recorded in ChatMessage.attachment
+        # rather than here: the v2 workspace upload endpoint never persists
+        # entity_identifier, and adding a chat_message FK to this table would
+        # be a migration on the busiest model in the schema for one column.
+        CHAT_ATTACHMENT = "CHAT_ATTACHMENT"
 
     attributes = models.JSONField(default=dict)
     asset = models.FileField(upload_to=get_upload_path, max_length=800)
@@ -99,5 +105,8 @@ class FileAsset(BaseModel):
             self.EntityTypeContext.DRAFT_ISSUE_DESCRIPTION,
         ]:
             return f"/api/assets/v2/workspaces/{self.workspace.slug}/projects/{self.project_id}/{self.id}/"
+
+        if self.entity_type == self.EntityTypeContext.CHAT_ATTACHMENT:
+            return f"/api/assets/v2/workspaces/{self.workspace.slug}/{self.id}/"
 
         return None
