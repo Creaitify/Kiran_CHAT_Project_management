@@ -139,6 +139,7 @@
   --chat-online: #079455;
   --chat-gradient-ai: linear-gradient(135deg, rgb(241 251 255 / 96%) 0%, rgb(221 240 255 / 92%) 100%);
   --chat-gradient-brand: linear-gradient(135deg, #16bce9 0%, #217de8 48%, #334cbe 100%);
+  --chat-gradient-brand-safe: linear-gradient(135deg, #007ca7 0%, #006cdb 50%, #344cbe 100%);
   --chat-canvas-gradient:
     radial-gradient(circle at 14% 18%, rgb(26 192 233 / 15%) 0, transparent 31%),
     radial-gradient(circle at 82% 24%, rgb(50 88 228 / 13%) 0, transparent 36%),
@@ -178,6 +179,7 @@
   --chat-online: #35d08a;
   --chat-gradient-ai: linear-gradient(135deg, rgb(14 42 76 / 94%) 0%, rgb(8 24 48 / 94%) 100%);
   --chat-gradient-brand: linear-gradient(135deg, #1bc7e9 0%, #2589ec 50%, #4554ce 100%);
+  --chat-gradient-brand-safe: linear-gradient(135deg, #1bc7e9 0%, #2589ec 50%, #6774d7 100%);
   --chat-canvas-gradient:
     radial-gradient(circle at 15% 20%, rgb(13 166 211 / 12%) 0, transparent 32%),
     radial-gradient(circle at 84% 22%, rgb(48 76 221 / 13%) 0, transparent 38%),
@@ -340,7 +342,7 @@
 
 .kiran-chat-app .message-bubble-mine {
   border: 1px solid rgb(255 255 255 / 18%);
-  background: var(--chat-gradient-brand);
+  background: var(--chat-gradient-brand-safe);
   box-shadow:
     0 14px 32px -20px rgb(31 89 211 / 70%),
     inset 0 1px 0 rgb(255 255 255 / 20%);

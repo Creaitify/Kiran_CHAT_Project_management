@@ -185,7 +185,14 @@ A gradient travels in lightness; a text colour does not. Put white text on the
 gradient above and it measures **2.23:1** at the cyan stop — a clear WCAG
 failure — while passing comfortably at the indigo end. Because the gradient runs
 135° (top-left to bottom-right), the cyan sits under the *first line of text*.
-The dark-theme variant fails at the opposite end for the same reason.
+The dark-theme variant fails at the opposite end, and — this is the part
+that catches people — **not for the same reason**. By
+[§3.1.1](#311-text-on-a-coloured-fill--the-rule-that-flips) the ink on a
+saturated fill flips to near-black in dark mode, so it is the *indigo* stop
+that goes under-contrast: **3.11:1** against `#03101f`, while the cyan end sits
+at a comfortable 9.47:1. The two themes fail at opposite ends because the ink
+moved, not because the gradient did — which means the two safe ramps are
+corrected in **opposite directions**, and neither can be derived from the other.
 
 ### The rule
 
@@ -195,16 +202,22 @@ The dark-theme variant fails at the opposite end for the same reason.
 /* DECORATIVE ONLY — never put text on this */
 --gradient-brand: linear-gradient(135deg, #16bce9 0%, #217de8 48%, #334cbe 100%);
 
-/* SAFE FOR TEXT — white clears 4.5:1 across the entire ramp (4.73:1 at its
-   lightest point). Same movement, pulled down in lightness. */
+/* SAFE FOR TEXT (light theme, white ink) — clears 4.5:1 across the whole
+   ramp, 4.73:1 at its lightest point. Same movement, pulled DOWN in lightness. */
 --gradient-brand-safe: linear-gradient(135deg, #007ca7 0%, #006cdb 50%, #344cbe 100%);
 ```
 
-Dark-theme equivalents:
+Dark-theme equivalents. Note the safe ramp is pulled **up** in lightness here,
+the opposite of the light theme, because the ink it carries is near-black:
 
 ```css
+/* DECORATIVE ONLY — never put text on this */
 --gradient-brand: linear-gradient(135deg, #1bc7e9 0%, #2589ec 50%, #4554ce 100%);
---gradient-brand-safe: linear-gradient(135deg, #0086b4 0%, #0d74e0 50%, #3d55c6 100%);
+
+/* SAFE FOR TEXT (dark theme, near-black ink — see §3.1.1). Only the indigo
+   stop moves; cyan and blue already clear AA against dark ink at 9.47:1 and
+   5.35:1. Worst stop 4.61:1, hue and saturation preserved. */
+--gradient-brand-safe: linear-gradient(135deg, #1bc7e9 0%, #2589ec 50%, #6774d7 100%);
 ```
 
 Use `--gradient-brand` for logos, ambient orbs, and empty-state art. Use
@@ -212,7 +225,9 @@ Use `--gradient-brand` for logos, ambient orbs, and empty-state art. Use
 bubbles.
 
 > If you invent a new gradient, measure contrast at **both** end stops before
-> shipping it, not just the one you happened to screenshot.
+> shipping it, not just the one you happened to screenshot — and measure it
+> against the ink *that theme* actually uses, which by §3.1.1 is not the same
+> ink in both themes.
 
 ---
 
@@ -601,7 +616,9 @@ Contrast
 
 - [ ] Body text ≥ 4.5:1 in both themes
 - [ ] UI and large text ≥ 3:1 in both themes
-- [ ] Any gradient carrying text measured at **both** end stops
+- [ ] Any gradient carrying text measured at **both** end stops, in **each**
+      theme, against the ink that theme actually uses — the two safe ramps
+      move in opposite directions, see [§4](#4-the-brand-gradient-and-its-one-trap)
 - [ ] Placeholder and disabled text checked, not assumed
 
 Glass
@@ -632,6 +649,32 @@ Focus
 ---
 
 ## 14. Changelog
+
+### 1.2 — 27 August 2026
+
+**Corrected the dark-theme safe brand gradient, which 1.1 published pointing the
+wrong way.** §3.1.1 says the ink on a saturated fill flips to near-black in
+dark mode; §4 then gave a dark `--gradient-brand-safe` derived as if it carried
+white ink, so it was darkened when it needed lightening.
+
+- **The published dark ramp failed at two of three stops.** Measured against the
+  dark-mode ink `#03101f`, `#0086b4 / #0d74e0 / #3d55c6` gives 4.62 / **4.18** /
+  **3.02**. It was strictly worse than the decorative ramp it was meant to
+  replace, which fails at one stop (3.11:1 at the indigo end).
+- **Fixed by raising only the indigo stop**, `#4554ce` → `#6774d7`, hue and
+  saturation preserved: 3.11 → 4.61:1. Cyan and blue are untouched — against
+  dark ink they already measure 9.47:1 and 5.35:1, and pulling them down would
+  have broken what was working.
+- **The light ramp was right and is unchanged**, but its comment claimed the
+  4.5:1 clearance for "the entire ramp" without saying which ink. Now scoped to
+  the light theme and white ink, with the dark block marked as moving in the
+  opposite direction. Neither ramp can be derived from the other.
+- **Applied in chat.** `.message-bubble-mine` painted the *decorative*
+  `--chat-gradient-brand` behind its text — 2.23:1 at the cyan stop in light
+  mode, under the first line of text at 135°. It now takes a new
+  `--chat-gradient-brand-safe` token in both themes: worst stop 4.73:1 light,
+  4.61:1 dark. This was the defect Stage 3 recorded and asked to have fixed or
+  consciously deferred.
 
 ### 1.1 — 25 August 2026
 
