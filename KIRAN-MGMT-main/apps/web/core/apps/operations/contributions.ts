@@ -26,11 +26,20 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { BuildingIcon } from "lucide-react";
+// plane imports
+import { TOAST_TYPE, setToast } from "@plane/propel/toast";
 // components
 import type { TPowerKCommandConfig } from "@/components/power-k/core/types";
 import { handlePowerKNavigate } from "@/components/power-k/utils/navigation";
 // apps
-import type { TBacklinks, TEntityRef } from "../links";
+import type {
+  TBacklinks,
+  TEntityAction,
+  TEntityLinkSpec,
+  TEntityOptions,
+  TEntityRef,
+  TEntityTarget,
+} from "../links";
 import type { TAppBadge, TAppContributionContext } from "../types";
 // local imports
 import { OperationsService, type TDepartment } from "./service";
@@ -240,4 +249,186 @@ export function useOperationsBacklinks(
   }, [isVisible, workspaceSlug, kind, id]);
 
   return state;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Entity links — offering departments to whoever wants to point at one       */
+/* -------------------------------------------------------------------------- */
+
+const NO_OPTIONS: TEntityOptions = { options: [], loading: false };
+
+/**
+ * Departments, as things another app can attach itself to.
+ *
+ * Chat calls this through `useEntityOptions("department")` to fill the picker in
+ * a conversation's settings. It is the only way that picker can exist without
+ * chat importing this file — and the import would not be cosmetic, because chat
+ * would then also have to know that a department is `{code, name}` and which of
+ * the two goes in the label.
+ *
+ * Fetched once per mount and not polled. A picker is opened deliberately and
+ * read once; departments change on the order of months.
+ */
+export function useOperationsEntityOptions(kind: string, ctx: TAppContributionContext): TEntityOptions {
+  const [state, setState] = useState<TEntityOptions>(NO_OPTIONS);
+  const { workspaceSlug, isVisible } = ctx;
+  const wanted = kind === "department";
+
+  useEffect(() => {
+    if (!wanted || !isVisible || !workspaceSlug) {
+      setState(NO_OPTIONS);
+      return;
+    }
+
+    let live = true;
+    setState({ options: [], loading: true });
+
+    void service
+      .listDepartments(workspaceSlug)
+      .then((departments: TDepartment[]) => {
+        if (!live) return;
+        setState({
+          loading: false,
+          options: departments.map((department) => ({
+            ref: { appKey: "operations", kind: "department", id: department.id },
+            // The code leads because it is what the chip in a room list shows;
+            // the name is there so the picker is readable to somebody who has
+            // not memorised the codes.
+            label: department.code,
+            hint: department.name,
+          })),
+        });
+      })
+      .catch(() => {
+        // A picker that offers nothing is a picker somebody closes. One that
+        // throws takes the settings dialog with it.
+        if (live) setState(NO_OPTIONS);
+      });
+
+    return () => {
+      live = false;
+    };
+  }, [wanted, isVisible, workspaceSlug]);
+
+  return state;
+}
+
+/**
+ * Operations' side of the entity contract.
+ *
+ * Deliberately asymmetric: `href` produces a link to a department, `parse` never
+ * recognises one. A department's screen is `?tab=departments&department=<id>` —
+ * query string, not path — and `parse` is given a pathname on purpose, because a
+ * matcher that needs a query is describing a screen state rather than an object.
+ * So an operations link pasted into chat stays an ordinary link, which is the
+ * right answer until departments get a path of their own.
+ *
+ * `label` cannot do better than the kind. It is pure and synchronous and the id
+ * is a uuid; the readable name arrives through `useOptions`, and anybody who
+ * stores a department stores the code alongside it rather than resolving one
+ * every render.
+ */
+export const operationsEntityLinks: TEntityLinkSpec = {
+  parse: () => null,
+  href: (ref, workspaceSlug) =>
+    ref.kind === "department"
+      ? `/${workspaceSlug}/operations?tab=departments&department=${encodeURIComponent(ref.id)}`
+      : null,
+  label: (ref) => (ref.kind === "department" ? "Department" : ref.kind),
+  useOptions: useOperationsEntityOptions,
+};
+
+/* -------------------------------------------------------------------------- */
+/* Entity actions — setting a reminder on anybody's object                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Presets rather than a picker.
+ *
+ * An action's `run` is fired from inside somebody else's component tree, so it
+ * cannot open a dialog of its own without operations shipping a dialog into
+ * chat's DOM and chat agreeing to host it. Three fixed offsets need no UI at
+ * all, and they cover what a reminder set from a conversation is actually for:
+ * "not now", "after lunch", "tomorrow".
+ *
+ * Anything more deliberate than this belongs on the reminders screen, which has
+ * the room for a date picker and is one click away.
+ */
+const REMINDER_PRESETS: { id: string; label: string; at: (now: Date) => Date }[] = [
+  {
+    id: "1h",
+    label: "Remind me in an hour",
+    at: (now) => new Date(now.getTime() + 60 * 60 * 1000),
+  },
+  {
+    id: "3h",
+    label: "Remind me in three hours",
+    at: (now) => new Date(now.getTime() + 3 * 60 * 60 * 1000),
+  },
+  {
+    id: "tomorrow",
+    label: "Remind me tomorrow morning",
+    // 09:00 local, which is the reader's own clock -- the server stores the
+    // instant, so a reminder set at 23:00 in one zone still lands at breakfast.
+    at: (now) => {
+      const next = new Date(now);
+      next.setDate(next.getDate() + 1);
+      next.setHours(9, 0, 0, 0);
+      return next;
+    },
+  },
+];
+
+/** The longest an entity label may be before it is trimmed for storage. */
+const MAX_LABEL = 240;
+
+/**
+ * "Remind me about this", offered on any object in the product.
+ *
+ * The whole of operations' knowledge of the thing being reminded about is the
+ * three opaque strings in the ref and one line of text its owner wrote. That is
+ * the test: chat's message menu grows an operations feature, and neither app's
+ * source mentions the other.
+ */
+export function useOperationsEntityActions(
+  target: TEntityTarget | null,
+  ctx: TAppContributionContext
+): TEntityAction[] {
+  const { workspaceSlug, isVisible } = ctx;
+
+  return useMemo(() => {
+    if (!isVisible || !workspaceSlug || !target) return [];
+
+    return REMINDER_PRESETS.map<TEntityAction>((preset) => ({
+      id: `operations_reminder_${preset.id}`,
+      label: preset.label,
+      appLabel: "Operations",
+      run: async () => {
+        try {
+          await service.createReminder(workspaceSlug, {
+            entity_kind: target.ref.kind,
+            entity_id: target.ref.id,
+            entity_label: target.label.slice(0, MAX_LABEL),
+            // `new Date()` at fire time, not at render time: a menu left open
+            // for ten minutes must not set a reminder ten minutes in the past.
+            remind_at: preset.at(new Date()).toISOString(),
+          });
+          // The rail badge counts due reminders and is on a slow poll; this one
+          // is not due yet, but the list behind the badge is now stale.
+          refreshDueReminders(workspaceSlug);
+          setToast({
+            type: TOAST_TYPE.SUCCESS,
+            title: "Reminder set",
+            message: preset.label.replace("Remind me ", "We will remind you "),
+          });
+        } catch {
+          setToast({
+            type: TOAST_TYPE.ERROR,
+            title: "Could not set that reminder",
+            message: "Try again from the Operations screen.",
+          });
+        }
+      },
+    }));
+  }, [isVisible, workspaceSlug, target?.ref.kind, target?.ref.id, target?.label]);
 }

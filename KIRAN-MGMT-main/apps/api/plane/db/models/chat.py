@@ -48,6 +48,34 @@ class ChatRoom(BaseModel):
 
     workspace = models.ForeignKey("db.Workspace", on_delete=models.CASCADE, related_name="chat_rooms")
 
+    # The room's department, when it has one.
+    #
+    # This is the seam between chat and the operations module, and it is a plain
+    # nullable FK on purpose. A room is not *owned* by a department -- it is a
+    # conversation that happens to belong to one -- so:
+    #
+    #   * `null=True` is the normal case, not an edge case. Direct messages and
+    #     ad-hoc group rooms have no department and never will.
+    #   * `SET_NULL` rather than CASCADE. Dissolving a department must not delete
+    #     the conversations its people had; the transcript is the record of what
+    #     happened and it outlives the org chart. The room degrades to an
+    #     ordinary group room.
+    #   * The FK carries no permission weight. Room membership is still the only
+    #     thing that decides who reads a room -- attaching a department does not
+    #     add its people, and detaching does not remove anyone. Anything else and
+    #     changing a dropdown would silently republish a transcript.
+    #
+    # Cross-workspace links are rejected in the serializer rather than by a
+    # constraint, because the workspace is on both rows and a DB-level check
+    # across two FKs costs more than the one comparison this needs.
+    department = models.ForeignKey(
+        "db.Department",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="chat_rooms",
+    )
+
     type = models.CharField(max_length=20, choices=RoomType.choices, default=RoomType.GROUP)
     # Null for direct rooms, whose name is "the other people in it" and is
     # therefore a rendering concern rather than stored data.
@@ -69,7 +97,17 @@ class ChatRoom(BaseModel):
         verbose_name_plural = "Chat Rooms"
         db_table = "chat_rooms"
         ordering = ("-created_at",)
-        indexes = [models.Index(fields=["workspace", "-created_at"])]
+        indexes = [
+            models.Index(fields=["workspace", "-created_at"]),
+            # "Which rooms belong to this department" is asked on every
+            # operations screen that offers to open a conversation, and it is a
+            # partial index because most rooms have no department at all.
+            models.Index(
+                fields=["department", "-created_at"],
+                name="chat_rooms_department_idx",
+                condition=models.Q(department__isnull=False),
+            ),
+        ]
 
     def __str__(self):
         return self.name or f"{self.type}:{self.id}"

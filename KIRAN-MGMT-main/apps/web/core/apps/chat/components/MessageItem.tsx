@@ -4,9 +4,10 @@
  * See the LICENSE file for details.
  */
 
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
+  BellRing,
   Bookmark,
   BookmarkCheck,
   Check,
@@ -34,6 +35,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
@@ -42,6 +44,9 @@ import { UserProfileDialog } from "./UserProfileDialog";
 import { MediaAttachment } from "./MediaAttachment";
 import { copyAttachmentToClipboard, isMediaAttachment } from "../lib/attachments";
 import { MarkdownContent } from "./MarkdownContent";
+// apps
+import { useEntityActions } from "../../links";
+// local imports
 import { useChat } from "../store/chat-store";
 import { isTombstoned, type SharedMessage, type User } from "../lib/chat-types";
 import { formatTime } from "../lib/time";
@@ -93,6 +98,21 @@ function MessageItemImpl({
     plainText,
   } = useChat();
   const { t } = useI18n();
+
+  // What other apps offer to do with this message. The target is minted here,
+  // where the message is: `roomId:messageId` because a permalink needs both, and
+  // an excerpt because a provider storing "Message" as the label would be
+  // storing nothing. Memoised on the two strings so the providers behind this
+  // do not re-run on every render of every message in the list.
+  const entityActions = useEntityActions(
+    useMemo(
+      () => ({
+        ref: { appKey: "chat" as const, kind: "message", id: `${message.roomId}:${message.id}` },
+        label: plainText(message.content).slice(0, 240),
+      }),
+      [message.roomId, message.id, message.content, plainText],
+    ),
+  );
   const [editing, setEditing] = useState(false);
   const [profileUser, setProfileUser] = useState<User | null>(null);
   const [editValue, setEditValue] = useState(message.content);
@@ -187,7 +207,7 @@ function MessageItemImpl({
 
         <div
           className={cn(
-            "rounded-xl px-4 py-2.5 text-sm shadow-[var(--shadow-soft)]",
+            "rounded-xl px-4 py-2.5 text-sm shadow-[var(--chat-shadow-soft)]",
             mine
               ? "message-bubble-mine rounded-br-sm bg-primary text-primary-foreground"
               : "message-bubble-other rounded-bl-sm border border-border bg-surface text-foreground",
@@ -530,6 +550,24 @@ function MessageItemImpl({
                   <DropdownMenuItem onClick={() => copyText(permalinkFor(message), "Link copied")}>
                     <Link2 className="mr-2 h-4 w-4" /> Copy link to message
                   </DropdownMenuItem>
+                  {/*
+                    Whatever the other apps offer to do with a message. Chat
+                    renders the labels and calls `run`; it does not know that
+                    operations is behind them, that a reminder exists, or that
+                    there are three of them rather than one. An app that is not
+                    installed contributes nothing and this block disappears.
+                  */}
+                  {entityActions.length > 0 && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuLabel>{entityActions[0]?.appLabel}</DropdownMenuLabel>
+                      {entityActions.map((action) => (
+                        <DropdownMenuItem key={action.id} onClick={() => void action.run()}>
+                          <BellRing className="mr-2 h-4 w-4" /> {action.label}
+                        </DropdownMenuItem>
+                      ))}
+                    </>
+                  )}
                   {canDelete && (
                     <>
                       <DropdownMenuSeparator />
@@ -570,7 +608,7 @@ function DeliveryIcon({ message, readerCount }: { message: SharedMessage; reader
     return <X className="h-3 w-3 text-destructive" aria-label="Failed to send" />;
   }
   if (readerCount > 0) {
-    return <CheckCheck className="h-3 w-3 text-sky-300" aria-label="Read" />;
+    return <CheckCheck className="h-3 w-3 text-[var(--chat-receipt-read)]" aria-label="Read" />;
   }
   if (message.delivery === "delivered") {
     return <CheckCheck className="h-3 w-3" aria-label="Delivered" />;

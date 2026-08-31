@@ -6,7 +6,12 @@
 
 import { MessageSquareIcon } from "lucide-react";
 import type { TAppManifest } from "../types";
-import { useChatBacklinks, useChatBadge, useChatPowerKCommands } from "./contributions";
+import {
+  chatEntityLinks,
+  useChatBacklinks,
+  useChatBadge,
+  useChatPowerKCommands,
+} from "./contributions";
 
 /**
  * Chat -- the first app ported in under the registry rather than built on it.
@@ -38,8 +43,9 @@ export const chatAppManifest: TAppManifest = {
   // does with the visibility flag it is handed.
   useBadge: useChatBadge,
   usePowerKCommands: useChatPowerKCommands,
-  // Chat holds no referenceable objects of its own yet, so no `entityLinks` --
-  // but it does hold references to everyone else's, which is the half that
-  // makes a work item able to show its conversations.
+  // Both halves of the entity contract now. `useBacklinks` is the one that
+  // makes a work item able to show its conversations; `entityLinks` is the one
+  // that lets an operations reminder set on a message be clicked back to it.
   useBacklinks: useChatBacklinks,
+  entityLinks: chatEntityLinks,
 };

@@ -27,6 +27,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Input } from "../ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { UserAvatar } from "./UserAvatar";
+// apps
+import { useEntityOptions } from "../../links";
+// local imports
 import { useChat } from "../store/chat-store";
 import { formatDateTime, formatUntil } from "../lib/time";
 import { cn } from "../lib/cn";
@@ -70,6 +73,7 @@ export function RoomSettingsDialog({
     renameRoom,
     setRoomTopic,
     setRoomDescription,
+    setRoomDepartment,
     addMembers,
     removeMember,
     toggleAdmin,
@@ -88,6 +92,7 @@ export function RoomSettingsDialog({
   const [name, setName] = useState(activeRoom.name ?? "");
   const [topic, setTopic] = useState(activeRoom.topic ?? "");
   const [description, setDescription] = useState(activeRoom.description ?? "");
+  const departments = useEntityOptions("department");
   const [pendingMembers, setPendingMembers] = useState<string[]>([]);
   const [expiry, setExpiry] = useState<number | null>(7 * 86_400_000);
   const [maxUses, setMaxUses] = useState<number | null>(50);
@@ -175,6 +180,40 @@ export function RoomSettingsDialog({
                     rows={3}
                     className="w-full resize-none rounded-lg border border-border bg-surface p-2 text-sm outline-none disabled:opacity-60"
                   />
+                </Field>
+                <Field
+                  label="Department"
+                  hint="Links this conversation to Operations"
+                >
+                  {/*
+                    The options come from whichever app owns the "department"
+                    kind -- chat asks the registry, not operations. It never
+                    learns what a department is: an id to send, and a code and
+                    name that the owning app wrote for it to render.
+                  */}
+                  <select
+                    value={activeRoom.departmentId ?? ""}
+                    disabled={!admin || departments.loading}
+                    onChange={(event) => {
+                      const picked = departments.options.find(
+                        (option) => option.ref.id === event.target.value,
+                      );
+                      setRoomDepartment(
+                        activeRoom.id,
+                        picked ? { id: picked.ref.id, code: picked.label, name: picked.hint ?? "" } : null,
+                      );
+                    }}
+                    className="h-9 w-full rounded-lg border border-border bg-surface px-2 text-sm outline-none disabled:opacity-60"
+                  >
+                    <option value="">
+                      {departments.loading ? "Loading departments…" : "No department"}
+                    </option>
+                    {departments.options.map((option) => (
+                      <option key={option.ref.id} value={option.ref.id}>
+                        {option.hint ? `${option.label} — ${option.hint}` : option.label}
+                      </option>
+                    ))}
+                  </select>
                 </Field>
               </>
             )}

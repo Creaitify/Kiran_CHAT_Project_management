@@ -34,7 +34,7 @@ import type { EUserProjectRoles, EUserWorkspaceRoles } from "@plane/types";
 // components
 import type { TPowerKCommandConfig } from "@/components/power-k/core/types";
 // local imports
-import type { TBacklinks, TEntityLinkSpec, TEntityRef } from "./links";
+import type { TBacklinks, TEntityAction, TEntityLinkSpec, TEntityRef, TEntityTarget } from "./links";
 
 export type TAppKey = string;
 
@@ -180,6 +180,20 @@ export type TAppManifest = {
    * See `./links.ts` for why a ref is three opaque strings.
    */
   entityLinks?: TEntityLinkSpec;
+  /**
+   * What this app offers to *do* to someone else's object.
+   *
+   * Operations implements this to offer "remind me about this" on anything --
+   * a chat message, a work item, whatever the fourth app holds. The object
+   * arrives as an opaque ref and this app never resolves it; it stores the ref
+   * and a label the ref's owner supplied.
+   *
+   * Omit it if your app only reads. See `./links.ts`.
+   */
+  useEntityActions?: (
+    target: TEntityTarget | null,
+    ctx: TAppContributionContext,
+  ) => TEntityAction[];
   /**
    * What this app holds that points at *someone else's* object.
    *

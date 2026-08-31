@@ -86,7 +86,6 @@
   --color-amber-600: oklch(0.666 0.179 58.318);
   --color-amber-700: oklch(0.555 0.163 48.998);
   --color-amber-900: oklch(0.414 0.112 45.904);
-  --color-sky-300: oklch(0.828 0.111 230.318);
   --color-sky-500: oklch(0.685 0.169 237.323);
   --color-violet-500: oklch(0.606 0.25 292.717);
   --color-slate-950: oklch(0.129 0.042 264.695);
@@ -136,6 +135,21 @@
   --chat-ai: #087edc;
   --chat-ai-foreground: #ffffff;
   --chat-online: #079455;
+  /* The read-receipt tick, which only ever renders on an own-message bubble --
+     i.e. on --chat-gradient-brand-safe, which INVERTS between themes. A single
+     colour cannot serve both, so it is a token. Light: the fill is dark blue,
+     so the tick is pale. Measured against all three stops -- 3.38:1 at #007ca7,
+     3.61:1 at #006cdb, 5.14:1 at #344cbe. The old literal here was sky-300
+     (#7dd3fc), which fell to 2.84:1 at the cyan stop, under the 3:1 minimum
+     WCAG 1.4.11 sets for a meaning-bearing icon. */
+  --chat-receipt-read: #a5e3ff;
+  /* The well behind a code block on an own-message bubble. It has to move the
+     fill AWAY from the ink: light mode puts white ink on a dark-blue bubble, so
+     the well darkens. Inline code uses the mirrored value. */
+  --chat-on-primary-well: rgb(0 0 0 / 22%);
+  /* Tint for the three chrome edge-shadows (rail, header, composer). Blue-cast
+     on a pale ground; black in dark, like --chat-shadow-soft. */
+  --chat-edge-shadow: rgb(18 81 147 / 58%);
   --chat-gradient-ai: linear-gradient(135deg, rgb(241 251 255 / 96%) 0%, rgb(221 240 255 / 92%) 100%);
   --chat-gradient-brand: linear-gradient(135deg, #16bce9 0%, #217de8 48%, #334cbe 100%);
   --chat-gradient-brand-safe: linear-gradient(135deg, #007ca7 0%, #006cdb 50%, #344cbe 100%);
@@ -148,9 +162,14 @@
   --chat-shadow-soft: 0 1px 2px rgb(19 66 115 / 7%), 0 12px 30px -20px rgb(28 99 169 / 30%);
 }
 
-/* KIRAN puts `.dark` on the document element, the same convention chat used,
-   so the dark palette needs no translation -- only rescoping. */
-.dark .kiran-chat-app {
+/* The shell switches themes with a `data-theme` ATTRIBUTE on the document
+   element -- `app/root.tsx` passes `attribute="data-theme"` to the theme
+   provider, and no `.dark` class is ever set anywhere in the product. So this
+   block must key off the same selector `@custom-variant dark` uses in
+   `packages/tailwind-config/variables.css:1`, substring match included, or it
+   silently never matches and chat renders its LIGHT palette under dark ink.
+   Keep this selector in sync with that custom-variant. */
+[data-theme*="dark"] .kiran-chat-app {
   color-scheme: dark;
   --chat-background: #030812;
   --chat-foreground: #edf7ff;
@@ -175,6 +194,16 @@
   --chat-ai: #65c8ff;
   --chat-ai-foreground: #06121f;
   --chat-online: #35d08a;
+  /* Dark: the fill is bright cyan-to-violet and the ink went near-black with
+     it, so the tick goes dark too. Measured against all three gradient stops
+     -- 7.00:1 at #1bc7e9, 3.95:1 at #2589ec, 3.40:1 at #6774d7 -- so it clears
+     the 3:1 non-text minimum everywhere the bubble can put it. */
+  --chat-receipt-read: #052e46;
+  /* Dark mode inverts the pairing -- near-black ink on a bright fill -- so the
+     well has to LIGHTEN instead. Darkening it here is what dropped code blocks
+     to 3.21:1 at the violet stop; lightening returns them to 6.7:1+. */
+  --chat-on-primary-well: rgb(255 255 255 / 22%);
+  --chat-edge-shadow: rgb(0 0 0 / 72%);
   --chat-gradient-ai: linear-gradient(135deg, rgb(14 42 76 / 94%) 0%, rgb(8 24 48 / 94%) 100%);
   --chat-gradient-brand: linear-gradient(135deg, #1bc7e9 0%, #2589ec 50%, #4554ce 100%);
   --chat-gradient-brand-safe: linear-gradient(135deg, #1bc7e9 0%, #2589ec 50%, #6774d7 100%);
@@ -314,15 +343,15 @@
 }
 
 .kiran-chat-app .conversation-rail {
-  box-shadow: 18px 0 48px -42px rgb(18 81 147 / 58%);
+  box-shadow: 18px 0 48px -42px var(--chat-edge-shadow);
 }
 
 .kiran-chat-app .chat-header {
-  box-shadow: 0 12px 34px -30px rgb(20 86 158 / 55%);
+  box-shadow: 0 12px 34px -30px var(--chat-edge-shadow);
 }
 
 .kiran-chat-app .composer-shell {
-  box-shadow: 0 -18px 44px -40px rgb(17 84 151 / 60%);
+  box-shadow: 0 -18px 44px -40px var(--chat-edge-shadow);
 }
 
 .kiran-chat-app .composer-shell textarea,
@@ -355,7 +384,7 @@
   -webkit-backdrop-filter: blur(18px) saturate(135%);
 }
 
-.dark .kiran-chat-app .message-bubble-other {
+[data-theme*="dark"] .kiran-chat-app .message-bubble-other {
   box-shadow:
     var(--chat-shadow-soft),
     inset 0 1px 0 rgb(126 206 255 / 8%);
@@ -475,40 +504,40 @@
 .kiran-chat-app .md-body .hljs-variable {
   color: #b7410e;
 }
-.dark .kiran-chat-app .md-body .hljs-comment,
-.dark .kiran-chat-app .md-body .hljs-quote {
+[data-theme*="dark"] .kiran-chat-app .md-body .hljs-comment,
+[data-theme*="dark"] .kiran-chat-app .md-body .hljs-quote {
   color: #8b98a8;
 }
-.dark .kiran-chat-app .md-body .hljs-keyword,
-.dark .kiran-chat-app .md-body .hljs-selector-tag,
-.dark .kiran-chat-app .md-body .hljs-literal,
-.dark .kiran-chat-app .md-body .hljs-type {
+[data-theme*="dark"] .kiran-chat-app .md-body .hljs-keyword,
+[data-theme*="dark"] .kiran-chat-app .md-body .hljs-selector-tag,
+[data-theme*="dark"] .kiran-chat-app .md-body .hljs-literal,
+[data-theme*="dark"] .kiran-chat-app .md-body .hljs-type {
   color: #e191e6;
 }
-.dark .kiran-chat-app .md-body .hljs-string,
-.dark .kiran-chat-app .md-body .hljs-regexp,
-.dark .kiran-chat-app .md-body .hljs-addition {
+[data-theme*="dark"] .kiran-chat-app .md-body .hljs-string,
+[data-theme*="dark"] .kiran-chat-app .md-body .hljs-regexp,
+[data-theme*="dark"] .kiran-chat-app .md-body .hljs-addition {
   color: #6fd39b;
 }
-.dark .kiran-chat-app .md-body .hljs-number,
-.dark .kiran-chat-app .md-body .hljs-built_in,
-.dark .kiran-chat-app .md-body .hljs-symbol {
+[data-theme*="dark"] .kiran-chat-app .md-body .hljs-number,
+[data-theme*="dark"] .kiran-chat-app .md-body .hljs-built_in,
+[data-theme*="dark"] .kiran-chat-app .md-body .hljs-symbol {
   color: #f0b072;
 }
-.dark .kiran-chat-app .md-body .hljs-title,
-.dark .kiran-chat-app .md-body .hljs-name,
-.dark .kiran-chat-app .md-body .hljs-section {
+[data-theme*="dark"] .kiran-chat-app .md-body .hljs-title,
+[data-theme*="dark"] .kiran-chat-app .md-body .hljs-name,
+[data-theme*="dark"] .kiran-chat-app .md-body .hljs-section {
   color: #7db3fc;
 }
-.dark .kiran-chat-app .md-body .hljs-attr,
-.dark .kiran-chat-app .md-body .hljs-attribute,
-.dark .kiran-chat-app .md-body .hljs-variable {
+[data-theme*="dark"] .kiran-chat-app .md-body .hljs-attr,
+[data-theme*="dark"] .kiran-chat-app .md-body .hljs-attribute,
+[data-theme*="dark"] .kiran-chat-app .md-body .hljs-variable {
   color: #f2a385;
 }
 
 /* A code block on a coloured own-message bubble needs its own surface. */
 .kiran-chat-app .md-on-primary pre {
-  background: rgb(0 0 0 / 22%);
+  background: var(--chat-on-primary-well);
   border-color: rgb(255 255 255 / 18%);
   color: inherit;
 }
