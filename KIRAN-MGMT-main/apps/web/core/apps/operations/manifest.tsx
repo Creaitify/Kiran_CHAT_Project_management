@@ -7,7 +7,9 @@
 import { GaugeIcon } from "lucide-react";
 import type { TAppManifest } from "../types";
 import {
+  operationsEntityLinks,
   useOperationsBacklinks,
+  useOperationsEntityActions,
   useOperationsBadge,
   useOperationsPowerKCommands,
 } from "./contributions";
@@ -44,4 +46,6 @@ export const operationsAppManifest: TAppManifest = {
   useBadge: useOperationsBadge,
   usePowerKCommands: useOperationsPowerKCommands,
   useBacklinks: useOperationsBacklinks,
+  entityLinks: operationsEntityLinks,
+  useEntityActions: useOperationsEntityActions,
 };

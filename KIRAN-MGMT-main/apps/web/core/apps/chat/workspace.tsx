@@ -12,6 +12,7 @@ import {
   Bookmark,
   Info,
   ImagePlus,
+  Keyboard,
   Languages,
   Menu,
   MoreVertical,
@@ -27,6 +28,9 @@ import {
   X,
 } from "lucide-react";
 import { PageHead } from "@/components/core/page-title";
+// apps
+import { entityHref } from "../links";
+// local imports
 import { ConversationSidebar } from "./components/ConversationSidebar";
 import { MessageThread } from "./components/MessageThread";
 import { Composer } from "./components/Composer";
@@ -56,6 +60,9 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 
@@ -225,108 +232,23 @@ export function ChatWorkspacePage() {
         Skip to message composer
       </a>
 
-      {/* Top bar */}
-      <header className="app-topbar flex h-16 shrink-0 items-center gap-3 border-b border-border bg-surface px-4 md:px-5">
-        <button
-          aria-label="Open conversation list"
-          className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-secondary hover:text-foreground lg:hidden"
-          onClick={() => setMobileNav(true)}
-        >
-          <Menu className="h-4 w-4" />
-        </button>
+      {/*
+        No chat-owned top bar.
 
-        {!sidebarOpen && (
-          <button
-            onClick={() => setSidebarOpen(true)}
-            aria-label="Open conversation sidebar"
-            title="Open conversations"
-            className="hidden h-9 w-9 items-center justify-center rounded-lg border border-border bg-surface-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground lg:inline-flex"
-          >
-            <PanelLeftOpen className="h-4 w-4" />
-          </button>
-        )}
+        Chat was ported from a standalone app, so it arrived with a masthead of
+        its own: a palette button, a connection toggle, a language menu and a
+        user chip. Inside the shell that is a second copy of furniture the shell
+        already owns -- the product's own top navigation carries global search,
+        the theme control and the signed-in user a few pixels above it. Stacking
+        them put four bands of chrome (shell nav, chat masthead, sidebar header,
+        room header) between the window edge and the first message, and two
+        search boxes directly above a third.
 
-        <button
-          onClick={() => setPaletteOpen(true)}
-          className="hidden items-center gap-2 rounded-lg border border-border bg-surface-2 px-2.5 py-1.5 text-[11px] text-muted-foreground transition-colors hover:bg-secondary md:flex"
-        >
-          <Search className="h-3.5 w-3.5" /> Search or jump to…
-          <kbd className="rounded border border-border bg-surface px-1 font-mono text-[10px]">
-            ⌘K
-          </kbd>
-        </button>
-
-        <div className="ml-auto flex items-center gap-1.5">
-          {outbox.length > 0 && (
-            <span className="hidden rounded-full bg-amber-500/12 px-2 py-1 text-[10px] font-medium text-amber-700 dark:text-amber-300 sm:inline">
-              {outbox.length} queued
-            </span>
-          )}
-          <button
-            onClick={() => setOnline(!online)}
-            aria-label={online ? "Simulate going offline" : "Reconnect"}
-            title={[
-              online ? "Connected — click to simulate offline" : "Offline — click to reconnect",
-              // Where this session's data actually lives. Kept in the tooltip
-              // rather than on screen: it matters when something is wrong with
-              // the connector and never otherwise.
-              connectorStatus
-                ? `Data: ${connectorStatus.detail}${connectorStatus.ready ? "" : " (unavailable)"}`
-                : null,
-            ]
-              .filter(Boolean)
-              .join("\n")}
-            className={cn(
-              "rounded-lg p-2 transition-colors hover:bg-secondary",
-              online ? "text-online" : "text-destructive",
-            )}
-          >
-            {online ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
-          </button>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              aria-label="Language"
-              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-            >
-              <Languages className="h-4 w-4" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuLabel className="flex items-center gap-1.5">
-                <Languages className="h-3.5 w-3.5" /> Language
-              </DropdownMenuLabel>
-              {(Object.keys(LOCALES) as LocaleCode[]).map((code) => (
-                <DropdownMenuItem
-                  key={code}
-                  onClick={() => setLocale(code)}
-                  className={cn(locale === code && "text-primary")}
-                >
-                  {LOCALES[code].label}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger className="flex items-center gap-2 rounded-lg border border-border bg-surface px-2.5 py-1.5 text-xs shadow-sm transition-colors hover:bg-secondary">
-              <UserAvatar user={currentUser} size={22} />
-              <span className="hidden sm:inline">{currentUser.name.split(" ")[0]}</span>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem onClick={() => setHeaderProfile(currentUser)} className="gap-2">
-                <UserRound className="h-4 w-4" /> My profile
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setSavedMode("saved")}>
-                <Bookmark className="mr-2 h-4 w-4" /> Saved items
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setShortcutsOpen(true)}>
-                Keyboard shortcuts
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </header>
+        Everything that bar did still exists; it moved to where it belongs. The
+        sidebar toggles and the palette sit in the room header on the left, the
+        connection state and the personal items are in that header's overflow
+        menu, and identity is the shell's to state once.
+      */}
 
       <div className="flex min-h-0 flex-1">
         {/* Conversation rail */}
@@ -370,7 +292,26 @@ export function ChatWorkspacePage() {
 
         {/* Chat */}
         <main className="flex min-w-0 flex-1 flex-col">
-          <div className="chat-header flex h-16 shrink-0 items-center gap-3 border-b border-border bg-surface px-4 md:px-6">
+          <div className="chat-header flex h-[68px] shrink-0 items-center gap-3 border-b border-border bg-surface px-4 md:px-6">
+            {/* Navigation, only when the sidebar is not already doing the job. */}
+            <button
+              aria-label="Open conversation list"
+              className="-ml-1 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground lg:hidden"
+              onClick={() => setMobileNav(true)}
+            >
+              <Menu className="h-4 w-4" />
+            </button>
+            {!sidebarOpen && (
+              <button
+                onClick={() => setSidebarOpen(true)}
+                aria-label="Open conversation sidebar"
+                title="Open conversations"
+                className="-ml-1 hidden rounded-lg p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground lg:inline-flex"
+              >
+                <PanelLeftOpen className="h-4 w-4" />
+              </button>
+            )}
+
             {activeRoom.type === "direct" ? (
               <button
                 type="button"
@@ -413,6 +354,9 @@ export function ChatWorkspacePage() {
                 )}
               </span>
               <span className="block truncate text-[11px] text-muted-foreground">
+                {/* The operations link, stated where the room is named. The code
+                    is the server's, denormalised onto the room; chat renders the
+                    two strings and knows nothing else about a department. */}
                 {activeRoom.topic
                   ? activeRoom.topic
                   : activeRoom.type === "direct"
@@ -422,7 +366,54 @@ export function ChatWorkspacePage() {
                     : `${participants.length} members • ${onlineCount} online`}
               </span>
             </button>
+
+            {/* The operations link, stated where the room is named -- a sibling
+                of the title rather than inside it, because the title is a
+                button and an anchor may not live in one. The code is the
+                server's, denormalised onto the room; chat renders these two
+                strings and knows nothing else about what a department is. */}
+            {activeRoom.departmentCode && (
+              <a
+                href={
+                  entityHref(
+                    { appKey: "operations", kind: "department", id: activeRoom.departmentId ?? "" },
+                    slug,
+                  ) ?? undefined
+                }
+                title={`Operations · ${activeRoom.departmentName ?? activeRoom.departmentCode}`}
+                className="shrink-0 rounded-md bg-primary/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-primary transition-colors hover:bg-primary/20"
+              >
+                {activeRoom.departmentCode}
+              </a>
+            )}
+
             <div className="ml-auto flex items-center gap-1">
+              {outbox.length > 0 && (
+                <span className="hidden rounded-full bg-amber-500/12 px-2 py-1 text-[10px] font-medium text-amber-700 dark:text-amber-300 sm:inline">
+                  {outbox.length} queued
+                </span>
+              )}
+              <button
+                onClick={() => setOnline(!online)}
+                aria-label={online ? "Simulate going offline" : "Reconnect"}
+                title={[
+                  online ? "Connected — click to simulate offline" : "Offline — click to reconnect",
+                  // Where this session's data actually lives. Kept in the tooltip
+                  // rather than on screen: it matters when something is wrong with
+                  // the connector and never otherwise.
+                  connectorStatus
+                    ? `Data: ${connectorStatus.detail}${connectorStatus.ready ? "" : " (unavailable)"}`
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join("\n")}
+                className={cn(
+                  "rounded-lg p-2 transition-colors hover:bg-secondary",
+                  online ? "text-online" : "text-destructive",
+                )}
+              >
+                {online ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
+              </button>
               {unread.total > 0 && (
                 <button
                   onClick={() => void summarizeRoom(activeRoom.id)}
@@ -512,6 +503,41 @@ export function ChatWorkspacePage() {
                   <DropdownMenuItem onClick={() => setMobilePanel(true)}>
                     <Info className="mr-2 h-4 w-4" /> Conversation info
                   </DropdownMenuItem>
+
+                  {/* Everything below here belonged to chat's own masthead. It is
+                      per-person rather than per-conversation, which is why it is
+                      at the bottom under its own label rather than mixed in. */}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel>You</DropdownMenuLabel>
+                  <DropdownMenuItem onClick={() => setPaletteOpen(true)}>
+                    <Search className="mr-2 h-4 w-4" /> Search or jump to…
+                    <span className="ml-auto font-mono text-[10px] text-muted-foreground">⌘K</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setHeaderProfile(currentUser)}>
+                    <UserRound className="mr-2 h-4 w-4" /> My profile
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSavedMode("saved")}>
+                    <Bookmark className="mr-2 h-4 w-4" /> Saved items
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setShortcutsOpen(true)}>
+                    <Keyboard className="mr-2 h-4 w-4" /> Keyboard shortcuts
+                  </DropdownMenuItem>
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      <Languages className="mr-2 h-4 w-4" /> Language
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                      {(Object.keys(LOCALES) as LocaleCode[]).map((code) => (
+                        <DropdownMenuItem
+                          key={code}
+                          onClick={() => setLocale(code)}
+                          className={cn(locale === code && "text-primary")}
+                        >
+                          {LOCALES[code].label}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>

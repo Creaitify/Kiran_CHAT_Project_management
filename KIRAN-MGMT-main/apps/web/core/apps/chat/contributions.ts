@@ -24,7 +24,7 @@ import { MessageSquareIcon } from "lucide-react";
 import type { TPowerKCommandConfig } from "@/components/power-k/core/types";
 import { handlePowerKNavigate } from "@/components/power-k/utils/navigation";
 // apps
-import type { TBacklinks, TEntityRef } from "../links";
+import type { TBacklinks, TEntityLinkSpec, TEntityRef } from "../links";
 import type { TAppBadge, TAppContributionContext } from "../types";
 // local imports
 import { ChatService } from "./services/chat.service";
@@ -169,3 +169,43 @@ export function useChatBacklinks(ref: TEntityRef | null, ctx: TAppContributionCo
 
   return state;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Entity links — chat's messages, as things other apps can point at          */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * A message, as a referenceable object.
+ *
+ * Registered so that an operations reminder set on a message can be clicked
+ * back to the message. Operations stores the ref and never looks inside it;
+ * resolving it to a URL is this file's job and only this file's.
+ *
+ * **The id is `roomId:messageId`.** A permalink needs both -- chat opens a room
+ * and then scrolls -- and the contract is explicit that an app's id is opaque
+ * and never parsed by anyone else, so packing two into one string is the
+ * intended way to do this rather than a workaround. Nothing outside this file
+ * splits it.
+ *
+ * `parse` never claims anything, deliberately. Chat's permalinks are
+ * `?room=&msg=`, and `parse` is given a pathname on purpose: a matcher that
+ * needs a query string is describing a screen state rather than an object. So a
+ * chat link pasted into a work item stays an ordinary link. The asymmetry is
+ * real and the alternative -- giving every message a path -- is a routing change
+ * nobody has asked for.
+ */
+export const chatEntityLinks: TEntityLinkSpec = {
+  parse: () => null,
+  href: (ref, workspaceSlug) => {
+    if (ref.kind !== "message") return null;
+    const separator = ref.id.indexOf(":");
+    if (separator <= 0) return null;
+    const roomId = ref.id.slice(0, separator);
+    const messageId = ref.id.slice(separator + 1);
+    if (!roomId || !messageId) return null;
+    return `/${workspaceSlug}/chat?room=${encodeURIComponent(roomId)}&msg=${encodeURIComponent(messageId)}`;
+  },
+  // Pure and synchronous, so it cannot reach the text. Anything that needs the
+  // excerpt is handed one at the call site -- see `TEntityTarget` in links.ts.
+  label: (ref) => (ref.kind === "message" ? "Message" : ref.kind),
+};

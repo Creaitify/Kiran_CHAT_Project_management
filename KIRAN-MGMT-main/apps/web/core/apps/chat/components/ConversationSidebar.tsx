@@ -119,6 +119,18 @@ export function ConversationSidebar({
             >
               {roomTitle(room)}
             </span>
+            {/* Plain text, not a link: the whole row is already a button that
+                opens the conversation, and a link inside it would be both
+                invalid markup and a second thing to hit by accident. The header
+                inside the room is where the department is clickable. */}
+            {room.departmentCode && (
+              <span
+                title={room.departmentName ?? room.departmentCode}
+                className="shrink-0 rounded bg-primary/10 px-1 py-px text-[9px] font-semibold uppercase tracking-wide text-primary"
+              >
+                {room.departmentCode}
+              </span>
+            )}
             {room.groupMuted && <BellOff className="h-3 w-3 shrink-0 text-muted-foreground" />}
             {level === "none" && <BellOff className="h-3 w-3 shrink-0 text-muted-foreground" />}
             <span
@@ -197,12 +209,14 @@ export function ConversationSidebar({
         aria-label="Conversations"
         className="conversation-rail flex h-full w-full flex-col border-r border-border bg-surface"
       >
-        <div className="flex h-16 items-center gap-2 border-b border-border px-4">
-          <UserAvatar user={currentUser} size={36} showStatus />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold">{currentUser.name}</p>
-            <p className="truncate text-[11px] text-muted-foreground">{currentUser.role}</p>
-          </div>
+        {/* The signed-in user used to be stated here, avatar and role and all.
+            The shell's top navigation already says who you are, a few pixels
+            above this and on every screen in the product; repeating it cost a
+            third of the rail's header to tell somebody something they were
+            being told twice already. The header now names the column instead,
+            which is the thing that was never said. */}
+        <div className="flex h-[68px] items-center gap-2 border-b border-border px-4">
+          <h2 className="min-w-0 flex-1 truncate text-sm font-semibold">Conversations</h2>
           <DropdownMenu onOpenChange={(open) => open && markNotificationsRead()}>
             <DropdownMenuTrigger
               aria-label={`Notifications${unreadNotificationCount ? `, ${unreadNotificationCount} unread` : ""}`}
@@ -260,8 +274,8 @@ export function ConversationSidebar({
           )}
         </div>
 
-        <div className="relative px-4 pt-4">
-          <Search className="absolute left-7 top-[calc(50%+0.5rem)] h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <div className="relative px-4 pt-5">
+          <Search className="absolute left-7 top-[calc(50%+0.625rem)] h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             id="chat-search-input"
             name="chat-search"
@@ -273,7 +287,7 @@ export function ConversationSidebar({
           />
         </div>
 
-        <div className="flex gap-2 px-4 py-3">
+        <div className="flex gap-2 px-4 pb-4 pt-3">
           <DropdownMenu>
             <DropdownMenuTrigger className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-surface py-2 text-xs font-medium text-secondary-foreground shadow-sm transition-colors hover:bg-secondary">
               <MessageSquarePlus className="h-3.5 w-3.5" /> New Chat

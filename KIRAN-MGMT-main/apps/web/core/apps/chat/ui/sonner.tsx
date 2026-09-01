@@ -6,12 +6,14 @@
 
 import { Toaster as Sonner } from "sonner";
 
+import { CHAT_PORTAL_SCOPE } from "./scope";
+
 type ToasterProps = React.ComponentProps<typeof Sonner>;
 
 const Toaster = ({ ...props }: ToasterProps) => {
   return (
     <Sonner
-      className="toaster group"
+      className={`${CHAT_PORTAL_SCOPE} toaster group`}
       toastOptions={{
         classNames: {
           toast:

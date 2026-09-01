@@ -259,6 +259,17 @@ interface ChatContextValue {
   createGroupDm: (participantIds: UserId[]) => Promise<RoomId>;
   renameRoom: (roomId: RoomId, name: string) => void;
   setRoomTopic: (roomId: RoomId, topic: string) => void;
+  /**
+   * Attach the conversation to an operations department, or detach it.
+   *
+   * `code` and `name` are passed in rather than looked up because chat cannot
+   * look them up -- they come from whichever app owns the id, through
+   * `useEntityOptions`, and chat only ever holds them as two strings to render.
+   */
+  setRoomDepartment: (
+    roomId: RoomId,
+    department: { id: string; code: string; name: string } | null,
+  ) => void;
   setRoomDescription: (roomId: RoomId, description: string) => void;
   updateGroupPhoto: (roomId: RoomId, photo: Room["photo"] | null) => boolean;
   addMembers: (roomId: RoomId, userIds: UserId[]) => void;
@@ -1623,6 +1634,34 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     [patchRoom, systemMessage, userById, currentUserId],
   );
 
+  const setRoomDepartment = useCallback(
+    (roomId: RoomId, department: { id: string; code: string; name: string } | null) => {
+      patchRoom(
+        roomId,
+        {
+          departmentId: department?.id,
+          departmentCode: department?.code,
+          departmentName: department?.name,
+        },
+        // Null is a real value here, not an omission: it is how a room is
+        // detached. `undefined` would serialise away and the PATCH would be a
+        // no-op that reported success.
+        { department: department?.id ?? null },
+      );
+      setMessages((current) => [
+        ...current,
+        systemMessage(
+          roomId,
+          department
+            ? `${userById(currentUserId).name} linked this conversation to ${department.code} — ${department.name}.`
+            : `${userById(currentUserId).name} unlinked this conversation from its department.`,
+        ),
+      ]);
+      toast.success(department ? `Linked to ${department.code}` : "Department removed");
+    },
+    [patchRoom, systemMessage, userById, currentUserId],
+  );
+
   const setRoomDescription = useCallback(
     (roomId: RoomId, description: string) => {
       patchRoom(roomId, { description: description.trim() }, { description: description.trim() });
@@ -2345,6 +2384,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     createGroupDm,
     renameRoom,
     setRoomTopic,
+    setRoomDepartment,
     setRoomDescription,
     updateGroupPhoto,
     addMembers,

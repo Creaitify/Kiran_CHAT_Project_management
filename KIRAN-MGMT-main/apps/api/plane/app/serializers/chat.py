@@ -308,6 +308,37 @@ class ChatRoomSerializer(BaseSerializer):
     last_message = serializers.SerializerMethodField()
     unread = serializers.SerializerMethodField()
 
+    # The operations link, denormalised for reading.
+    #
+    # `department` is the writable id; the code and name ride along so a room
+    # list can render an "OPS" chip without the client holding the department
+    # directory. They are two extra columns on a `select_related`, against one
+    # request per room otherwise -- and the room list is the first thing chat
+    # loads.
+    #
+    # Method fields rather than `source="department.code"` for one reason:
+    # deleting a department is a SOFT delete, and the cascade that nulls this FK
+    # is a celery task (`soft_delete_related_objects`). Between the delete and
+    # that task -- and forever, if the task never runs -- the row still points at
+    # a dissolved department, and `select_related` joins the raw table, so the
+    # ORM hands it back happily. Reporting the link as absent the moment the
+    # department is soft-deleted closes that window on the read side, where it is
+    # cheap, instead of trusting a background job to have run.
+    department_code = serializers.SerializerMethodField()
+    department_name = serializers.SerializerMethodField()
+
+    def _live_department(self, obj):
+        department = obj.department
+        return department if department and department.deleted_at is None else None
+
+    def get_department_code(self, obj):
+        department = self._live_department(obj)
+        return department.code if department else None
+
+    def get_department_name(self, obj):
+        department = self._live_department(obj)
+        return department.name if department else None
+
     class Meta:
         model = ChatRoom
         fields = [
@@ -319,6 +350,9 @@ class ChatRoomSerializer(BaseSerializer):
             "color",
             # Cropped group image: {url, zoom, x, y}.
             "photo",
+            "department",
+            "department_code",
+            "department_name",
             "archived",
             "archived_at",
             "members",
@@ -338,10 +372,33 @@ class ChatRoomSerializer(BaseSerializer):
             "invite",
             "last_message",
             "unread",
+            "department_code",
+            "department_name",
             "created_by",
             "created_at",
             "updated_at",
         ]
+
+    def validate_department(self, value):
+        """A room may only point at a department in its own workspace.
+
+        Checked here rather than with a database constraint: the workspace sits
+        on both rows, so this is one comparison the serializer already has the
+        objects for, against a cross-FK CHECK that Postgres cannot express
+        without a trigger.
+
+        On create the room does not exist yet, so the workspace comes from the
+        view through the serializer context; on update it comes from the row.
+        Both paths have to be covered -- validating only the update would leave
+        POST as the way in.
+        """
+        if value is None:
+            return None
+
+        workspace_id = getattr(self.instance, "workspace_id", None) or self.context.get("workspace_id")
+        if workspace_id and str(value.workspace_id) != str(workspace_id):
+            raise serializers.ValidationError("That department belongs to a different workspace.")
+        return value
 
     def validate_photo(self, value):
         if value in (None, ""):

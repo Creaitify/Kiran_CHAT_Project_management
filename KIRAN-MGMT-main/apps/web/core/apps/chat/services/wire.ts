@@ -74,6 +74,9 @@ export type TWireRoom = {
   description: string | null;
   color: string | null;
   photo: Room["photo"] | null;
+  department: string | null;
+  department_code: string | null;
+  department_name: string | null;
   archived_at: string | null;
   created_at: string;
   created_by: string | null;
@@ -210,6 +213,9 @@ export function wireToRoom(wire: TWireRoom): Room {
     ...(wire.color ? { color: wire.color } : {}),
     ...(wire.photo ? { photo: wire.photo } : {}),
     ...(wire.archived_at ? { archived: true, archivedAt: toEpoch(wire.archived_at) } : {}),
+    ...(wire.department ? { departmentId: wire.department } : {}),
+    ...(wire.department_code ? { departmentCode: wire.department_code } : {}),
+    ...(wire.department_name ? { departmentName: wire.department_name } : {}),
   };
 }
 

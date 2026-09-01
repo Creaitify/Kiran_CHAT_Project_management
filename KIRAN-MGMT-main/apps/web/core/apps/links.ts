@@ -68,6 +68,39 @@ export type TEntityLinkSpec = {
   href: (ref: TEntityRef, workspaceSlug: string) => string | null;
   /** How the ref should read inline in someone else's UI. Keep it short. */
   label: (ref: TEntityRef) => string;
+  /**
+   * This app's objects of `kind`, offered so another app can point at one.
+   *
+   * `parse`/`href`/`label` all answer questions about a ref somebody already
+   * has. This is the question that comes before them: *which* refs are there?
+   * Without it the only way for chat to offer "attach this conversation to a
+   * department" is to import the operations service, which is the coupling the
+   * registry exists to prevent -- and the coupling would be real, because chat
+   * would then also have to know that a department has a `code`.
+   *
+   * A hook rather than a function, because listing means fetching. Return
+   * `{options: [], loading: false}` for any kind you do not own; the caller
+   * offers every kind to every app the same way `parse` is offered every URL.
+   *
+   * Called for hidden apps too, for the Rules-of-Hooks reason in
+   * `contributions.ts` -- gate the fetch on `ctx.isVisible`.
+   */
+  useOptions?: (kind: string, ctx: TAppContributionContext) => TEntityOptions;
+};
+
+/** One of an app's objects, as offered to an app that wants to reference it. */
+export type TEntityOption = {
+  ref: TEntityRef;
+  /** How it reads in a picker. The owning app decides; nobody else can. */
+  label: string;
+  /** Secondary line, when the label alone is ambiguous. */
+  hint?: string;
+};
+
+export type TEntityOptions = {
+  options: TEntityOption[];
+  /** True until the first answer. Distinct from `options: []`, which means none. */
+  loading: boolean;
 };
 
 /** One thing in some app that points at the ref you asked about. */
@@ -183,4 +216,119 @@ export function useEntityBacklinks(ref: TEntityRef | null): TBacklinkGroup[] {
   }
 
   return groups;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Offering an app's objects to another app                                   */
+/* -------------------------------------------------------------------------- */
+
+const NO_OPTIONS: TEntityOptions = { options: [], loading: false };
+
+/**
+ * Everything in the product that is a `kind`, whoever owns it.
+ *
+ * The mirror of `useEntityBacklinks`: that one asks "who points at this?", this
+ * one asks "what is there to point at?". Chat uses it to fill the department
+ * picker in a conversation's settings without importing operations, knowing
+ * what a department is, or being edited when a fourth app starts owning
+ * something else a room can belong to.
+ *
+ * Every registered app is asked, in the registry's fixed order, and the answers
+ * are concatenated. A kind owned by two apps is a registry bug in the same way a
+ * URL claimed by two apps is; concatenating at least renders both rather than
+ * silently dropping one.
+ */
+export function useEntityOptions(kind: string): TEntityOptions {
+  const { workspaceSlug } = useParams();
+  const { apps } = useApps();
+
+  const slug = workspaceSlug?.toString() ?? "";
+  const visible = useMemo(() => new Set(apps.map((app) => app.key)), [apps]);
+
+  const collected: TEntityOption[] = [];
+  let loading = false;
+
+  for (const app of getRegisteredApps()) {
+    const isVisible = visible.has(app.key);
+    const ctx: TAppContributionContext = { workspaceSlug: slug, isVisible };
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const result = app.entityLinks?.useOptions?.(isVisible ? kind : "", ctx) ?? NO_OPTIONS;
+    if (!isVisible) continue;
+    if (result.loading) loading = true;
+    collected.push(...result.options);
+  }
+
+  return { options: collected, loading };
+}
+
+/* -------------------------------------------------------------------------- */
+/* Acting on another app's object                                             */
+/* -------------------------------------------------------------------------- */
+
+/** Something one app offers to do to an object it does not own. */
+export type TEntityAction = {
+  /** Unique within the providing app. */
+  id: string;
+  /** Imperative, and short enough for a context menu. "Remind me in an hour". */
+  label: string;
+  /** Grouping label, so a menu can head a run of actions with the app's name. */
+  appLabel: string;
+  /** Fires it. Reports its own success or failure -- the caller only closes. */
+  run: () => void | Promise<void>;
+};
+
+/**
+ * A ref plus how its owner wants it to read, for a provider that has to store
+ * the label rather than resolve it.
+ *
+ * `entityLabel(ref)` is pure and synchronous, so the best it can say about a
+ * chat message is "Message". A reminder that reads "Message" in a list of
+ * reminders is a reminder nobody can act on, so the caller -- which is holding
+ * the object -- supplies the line. It is still the owner's text: chat writes
+ * the excerpt, operations stores it verbatim and never parses it.
+ */
+export type TEntityTarget = {
+  ref: TEntityRef;
+  /** One line, plain text, written by the ref's owner. */
+  label: string;
+};
+
+const NO_ACTIONS: TEntityAction[] = [];
+
+/**
+ * Everything any app offers to do to this object.
+ *
+ * The write-side mirror of `useEntityBacklinks`. That one asks "who already
+ * points at this?"; this asks "who would like to". Operations offers to set a
+ * reminder on a chat message, and the two apps meet the same way they do
+ * everywhere else -- through three opaque strings and the registry. Chat never
+ * learns what a reminder is, operations never learns what a message is, and
+ * neither file imports the other.
+ *
+ * The owning app is never asked about its own object. An app's actions on its
+ * own objects are just its UI, and routing them through here would put "Reply"
+ * in the same menu as "Remind me", sourced from a registry, for no reason.
+ *
+ * Fixed iteration order and every provider called on every render, for the
+ * Rules-of-Hooks reason in `contributions.ts`. Gate work on `ctx.isVisible`.
+ */
+export function useEntityActions(target: TEntityTarget | null): TEntityAction[] {
+  const { workspaceSlug } = useParams();
+  const { apps } = useApps();
+
+  const slug = workspaceSlug?.toString() ?? "";
+  const visible = useMemo(() => new Set(apps.map((app) => app.key)), [apps]);
+
+  const collected: TEntityAction[] = [];
+
+  for (const app of getRegisteredApps()) {
+    const isVisible = visible.has(app.key) && app.key !== target?.ref.appKey;
+    const ctx: TAppContributionContext = { workspaceSlug: slug, isVisible };
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const result = app.useEntityActions?.(isVisible ? target : null, ctx) ?? NO_ACTIONS;
+    if (!isVisible) continue;
+    collected.push(...result);
+  }
+
+  return collected;
 }

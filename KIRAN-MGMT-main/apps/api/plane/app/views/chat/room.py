@@ -244,7 +244,7 @@ class ChatRoomViewSet(BaseViewSet):
                 members__left_at__isnull=True,
                 members__deleted_at__isnull=True,
             )
-            .select_related("workspace")
+            .select_related("workspace", "department")
             # Member rows are prefetched including the ones with `left_at` set:
             # their past messages still need a resolvable author, and the
             # serializer emits `left_at` so the client can tell them apart.
@@ -259,6 +259,18 @@ class ChatRoomViewSet(BaseViewSet):
         rooms = self.get_queryset()
         if request.query_params.get("archived") != "true":
             rooms = rooms.filter(archived_at__isnull=True)
+
+        # `?department=<id>` is how an operations screen asks "what conversations
+        # does this department have?". It is a filter on the caller's own rooms,
+        # not a directory: a department's channel that you are not in does not
+        # appear here, because `get_queryset` already pinned membership and
+        # attaching a department has never been a way to join a room.
+        department = request.query_params.get("department")
+        if department:
+            try:
+                rooms = rooms.filter(department_id=uuid.UUID(str(department)))
+            except (ValueError, AttributeError, TypeError):
+                return _bad_request("department must be a uuid.")
 
         return self.paginate(
             request=request,
@@ -301,7 +313,7 @@ class ChatRoomViewSet(BaseViewSet):
         elif room_type == ChatRoom.RoomType.GROUP and not (request.data.get("name") or "").strip():
             return _bad_request("A group room needs a name.")
 
-        serializer = ChatRoomSerializer(data=request.data)
+        serializer = ChatRoomSerializer(data=request.data, context={"workspace_id": workspace.id})
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -391,7 +403,9 @@ class ChatRoomViewSet(BaseViewSet):
         if room is None:
             return _not_found("The room does not exist or you are not a member of it.")
 
-        serializer = ChatRoomSerializer(room, data=request.data, partial=True)
+        serializer = ChatRoomSerializer(
+            room, data=request.data, partial=True, context={"workspace_id": room.workspace_id}
+        )
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)

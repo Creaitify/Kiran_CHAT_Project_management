@@ -86,6 +86,17 @@ export interface Room {
   notificationLevels?: Record<UserId, NotificationLevel>;
   archived?: boolean | undefined;
   archivedAt?: number | undefined;
+  /**
+   * The operations department this conversation belongs to, if any.
+   *
+   * The id is what a write sends; the code and name are denormalised by the
+   * server so a room row can render an "OPS" chip without chat holding the
+   * department directory. Chat never resolves a department itself -- it does
+   * not know what one is beyond these three strings.
+   */
+  departmentId?: string | undefined;
+  departmentCode?: string | undefined;
+  departmentName?: string | undefined;
 }
 
 export type NotificationLevel = "all" | "mentions" | "none";
